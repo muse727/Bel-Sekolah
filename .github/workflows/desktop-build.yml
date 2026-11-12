@@ -1,0 +1,49 @@
+name: Desktop Build (Windows MSI)
+
+on:
+  push:
+    tags:
+      - 'desktop-v*'
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build backend sidecar (Windows)
+        working-directory: desktop/backend
+        run: cargo build --release
+
+      - name: Stage sidecar into Tauri resources
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path desktop/app/sidecar | Out-Null
+          Copy-Item desktop/backend/target/release/bel-sekolah-backend.exe desktop/app/sidecar/
+          Copy-Item desktop/backend/migrations/0001_init.sql desktop/app/sidecar/
+
+      - name: Build Tauri app (MSI)
+        working-directory: desktop/app
+        run: |
+          npm ci
+          npm run tauri build
+
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bel-sekolah-windows-msi
+          path: desktop/app/target/release/bundle/msi/*.msi

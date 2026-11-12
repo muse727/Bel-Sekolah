@@ -1,0 +1,399 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+
+  /* Dark Theme Palette (Default Citron Neon Dark) */
+  --bg-app: #0E100D;
+  --bg-card: #171A15;
+  --bg-card-subtle: #141712;
+  --bg-hover: #20251D;
+  --border-app: #22281E;
+  --border-strong: #272E22;
+  --text-primary: #F4F6F0;
+  --text-muted: #9CA695;
+  --text-subtle: #6B7565;
+  --accent-primary: #D4FA3C;
+  --accent-text: #0E100D;
+  --accent-hover: #C2E834;
+}
+
+:root[data-theme="light"],
+.theme-light {
+  color-scheme: light;
+
+  /* Light Theme Palette (Clean, High Contrast, Anti-Slop, No Pure White Glare) */
+  --bg-app: #F7F9F4;
+  --bg-card: #FFFFFF;
+  --bg-card-subtle: #F0F3EC;
+  --bg-hover: #E7ECE1;
+  --border-app: #DCE2D5;
+  --border-strong: #CFD7C6;
+  --text-primary: #171E14;
+  --text-muted: #566350;
+  --text-subtle: #7A8774;
+  --accent-primary: #2D6A12;
+  --accent-text: #FFFFFF;
+  --accent-hover: #24570D;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Accessibility: focus ring contrast & cursor pointer */
+*:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+button:not(:disabled),
+summary,
+input[type="checkbox"],
+input[type="range"] {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+/* Smooth subtle transitions */
+.smooth-transition {
+  transition: all 160ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Hide scrollbar while preserving scroll functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Premium Skeleton Shimmer Animation */
+@keyframes shimmerSweep {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card-subtle) 0%,
+    var(--bg-hover) 45%,
+    var(--border-strong) 50%,
+    var(--bg-hover) 55%,
+    var(--bg-card-subtle) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmerSweep 1.6s infinite linear;
+}
+
+/* Toast & Modal Entrance Animations */
+@keyframes toastSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.97);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes modalPopIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(8px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-toast-in {
+  animation: toastSlideIn 220ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-modal-in {
+  animation: modalPopIn 200ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Light Mode Overrides for High Contrast & Anti-Slop */
+[data-theme="light"] {
+  background-color: var(--bg-app) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .bg-\[\#0E100D\] {
+  background-color: var(--bg-app) !important;
+  color: var(--text-primary) !important;
+}
+
+[data-theme="light"] .bg-\[\#171A15\],
+[data-theme="light"] .bg-\[\#1A1F17\],
+[data-theme="light"] .bg-\[\#151D13\]\/95,
+[data-theme="light"] .bg-\[\#171C16\]\/95 {
+  background-color: #FFFFFF !important;
+}
+
+[data-theme="light"] .bg-\[\#141712\],
+[data-theme="light"] .bg-\[\#10130E\],
+[data-theme="light"] .bg-\[\#1F241C\],
+[data-theme="light"] .bg-\[\#1D221A\],
+[data-theme="light"] .bg-\[\#1F251C\],
+[data-theme="light"] .bg-\[\#20251D\] {
+  background-color: #F1F5EC !important;
+}
+
+[data-theme="light"] .bg-\[\#1B2018\],
+[data-theme="light"] .bg-\[\#2B3523\],
+[data-theme="light"] .bg-\[\#202A19\] {
+  background-color: #E2EAD9 !important;
+}
+
+[data-theme="light"] .border-\[\#22281E\],
+[data-theme="light"] .border-\[\#272E22\],
+[data-theme="light"] .border-\[\#2D3627\],
+[data-theme="light"] .border-\[\#313B2A\],
+[data-theme="light"] .border-\[\#293223\],
+[data-theme="light"] .border-\[\#1D221A\],
+[data-theme="light"] .border-\[\#2A3423\],
+[data-theme="light"] .border-\[\#384B2A\],
+[data-theme="light"] .border-\[\#3E532D\],
+[data-theme="light"] .border-\[\#354627\],
+[data-theme="light"] .border-\[\#2C3526\],
+[data-theme="light"] .border-\[\#2E3727\] {
+  border-color: #D3DDCB !important;
+}
+
+[data-theme="light"] .text-\[\#F4F6F0\] {
+  color: #171E14 !important;
+}
+
+[data-theme="light"] .text-\[\#9CA695\],
+[data-theme="light"] .text-\[\#A9B2A3\] {
+  color: #4F5C4A !important;
+}
+
+[data-theme="light"] .text-\[\#D4FA3C\] {
+  color: #24630F !important;
+}
+
+[data-theme="light"] .bg-\[\#D4FA3C\] {
+  background-color: #2D6A12 !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] .bg-\[\#D4FA3C\] * {
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] .bg-\[\#D4FA3C\] .bg-\[\#0E100D\] {
+  background-color: #1B4508 !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] .bg-\[\#D4FA3C\] .bg-\[\#0E100D\]\/10,
+[data-theme="light"] .bg-\[\#D4FA3C\] .bg-\[\#0E100D\]\/15 {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  color: #FFFFFF !important;
+}
+
+[data-theme="light"] .bg-\[\#D4FA3C\] .text-\[\#0E100D\]\/70,
+[data-theme="light"] .bg-\[\#D4FA3C\] .text-\[\#0E100D\]\/75 {
+  color: rgba(255, 255, 255, 0.88) !important;
+}
+
+[data-theme="light"] .bg-\[\#D4FA3C\] .border-\[\#0E100D\]\/15 {
+  border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+[data-theme="light"] .hover\:bg-\[\#C2E834\]:hover {
+  background-color: #24570D !important;
+}
+
+[data-theme="light"] .hover\:bg-\[\#20251D\]:hover,
+[data-theme="light"] .hover\:bg-\[\#1B2018\]:hover {
+  background-color: #E6EFE0 !important;
+}
+
+[data-theme="light"] .divide-\[\#1D221A\] > * + * {
+  border-color: #D8E2D1 !important;
+}
+
+[data-theme="light"] .theme-card-subtle {
+  background-color: #F1F5EC;
+  border-color: #D3DDCB;
+}
+
+/* ===== Light Mode Phase 2: Semantic Colors & Remaining Dark Surfaces ===== */
+
+/* Danger / red surfaces */
+[data-theme="light"] .bg-\[\#2E1414\],
+[data-theme="light"] .bg-\[\#3D1414\],
+[data-theme="light"] .bg-\[\#3D1A1A\],
+[data-theme="light"] .bg-\[\#3A1717\],
+[data-theme="light"] .bg-\[\#2D1414\],
+[data-theme="light"] .bg-\[\#261313\],
+[data-theme="light"] .bg-\[\#241313\],
+[data-theme="light"] .bg-\[\#2E1818\],
+[data-theme="light"] .bg-\[\#522222\],
+[data-theme="light"] .bg-\[\#662020\],
+[data-theme="light"] .bg-\[\#694B1A\],
+[data-theme="light"] .bg-\[\#5E481D\],
+[data-theme="light"] .bg-\[\#6E2626\] {
+  background-color: #FBEAEA !important;
+}
+
+[data-theme="light"] .bg-\[\#3D1414\].border-\[\#662020\],
+[data-theme="light"] .border-\[\#662020\],
+[data-theme="light"] .border-\[\#522222\],
+[data-theme="light"] .border-\[\#6E2626\],
+[data-theme="light"] .border-\[\#3A5326\],
+[data-theme="light"] .border-\[\#445430\] {
+  border-color: #E5B8B8 !important;
+}
+
+[data-theme="light"] .text-\[\#FCA5A5\] {
+  color: #B42318 !important;
+}
+
+[data-theme="light"] .text-\[\#EF4444\] {
+  color: #D92D20 !important;
+}
+
+/* Warning / amber surfaces */
+[data-theme="light"] .bg-\[\#2A200E\],
+[data-theme="light"] .bg-\[\#251D11\],
+[data-theme="light"] .bg-\[\#241B0E\],
+[data-theme="light"] .bg-\[\#242721\],
+[data-theme="light"] .bg-\[\#2A3324\],
+[data-theme="light"] .bg-\[\#2B3325\],
+[data-theme="light"] .bg-\[\#25311B\],
+[data-theme="light"] .bg-\[\#2B3523\],
+[data-theme="light"] .bg-\[\#2A3821\],
+[data-theme="light"] .bg-\[\#2A3325\],
+[data-theme="light"] .bg-\[\#2A3324\],
+[data-theme="light"] .bg-\[\#35422D\],
+[data-theme="light"] .bg-\[\#2C3627\],
+[data-theme="light"] .bg-\[\#202A19\],
+[data-theme="light"] .bg-\[\#242C20\],
+[data-theme="light"] .bg-\[\#20241E\],
+[data-theme="light"] .bg-\[\#2F3928\],
+[data-theme="light"] .bg-\[\#2D3627\],
+[data-theme="light"] .bg-\[\#384B2A\] {
+  background-color: #EDF3E6 !important;
+}
+
+[data-theme="light"] .text-\[\#FCD34D\] {
+  color: #92620A !important;
+}
+
+[data-theme="light"] .border-\[\#5E481D\] {
+  border-color: #D9C08A !important;
+}
+
+[data-theme="light"] .border-\[\#2F3928\],
+[data-theme="light"] .border-\[\#2C3627\],
+[data-theme="light"] .border-\[\#2D3627\],
+[data-theme="light"] .border-\[\#384B2A\],
+[data-theme="light"] .border-\[\#242C20\],
+[data-theme="light"] .border-\[\#20241E\],
+[data-theme="light"] .border-\[\#445430\],
+[data-theme="light"] .border-\[\#35422D\] {
+  border-color: #C6D2BB !important;
+}
+
+[data-theme="light"] .hover\:bg-\[\#2A3325\]:hover,
+[data-theme="light"] .hover\:bg-\[\#2A3324\]:hover,
+[data-theme="light"] .hover\:bg-\[\#2C3627\]:hover,
+[data-theme="light"] .hover\:bg-\[\#35422D\]:hover,
+[data-theme="light"] .hover\:bg-\[\#2A3821\]:hover,
+[data-theme="light"] .hover\:bg-\[\#3D1A1A\]:hover {
+  background-color: #DFE9D5 !important;
+}
+
+[data-theme="light"] .hover\:bg-\[\#3D1A1A\]:hover {
+  background-color: #F3D9D9 !important;
+}
+
+/* Muted badges & subtle text on light surfaces */
+[data-theme="light"] .bg-\[\#6F7869\] {
+  background-color: #8B9683 !important;
+}
+
+[data-theme="light"] .text-\[\#7A8774\] {
+  color: #5C6A56 !important;
+}
+
+/* Neon lime chips & active pills readable on white cards */
+[data-theme="light"] .bg-\[\#20251D\].text-\[\#D4FA3C\],
+[data-theme="light"] .bg-\[\#1F251C\].text-\[\#D4FA3C\] {
+  background-color: #E4F2D8 !important;
+  color: #24630F !important;
+}
+
+/* Divide & generic borders not caught earlier */
+[data-theme="light"] .border-\[\#293223\],
+[data-theme="light"] .border-\[\#22281E\],
+[data-theme="light"] .border-\[\#272E22\],
+[data-theme="light"] .border-\[\#313B2A\] {
+  border-color: #D8E0CF !important;
+}
+
+[data-theme="light"] .hover\:bg-\[\#20251D\]:hover {
+  background-color: #E4EBDC !important;
+}
+
+/* ===== Light Mode Phase 3: Last Remaining Dark Surfaces ===== */
+[data-theme="light"] .bg-\[\#172013\],
+[data-theme="light"] .bg-\[\#1A2016\],
+[data-theme="light"] .bg-\[\#1E251A\],
+[data-theme="light"] .bg-\[\#1F2918\] {
+  background-color: #E9F1E1 !important;
+}
+
+[data-theme="light"] .bg-\[\#D97706\] {
+  background-color: #B45309 !important;
+}
+
+[data-theme="light"] .bg-\[\#F59E0B\] {
+  background-color: #D97706 !important;
+}
+
+[data-theme="light"] .bg-\[\#DC2626\] {
+  background-color: #DC2626 !important;
+}
+
+[data-theme="light"] .border-\[\#172013\],
+[data-theme="light"] .border-\[\#384B2A\] {
+  border-color: #B9CBA8 !important;
+}
+
+/* ===== Light Mode Phase 4: Profile Switcher & Progress ===== */
+[data-theme="light"] .bg-\[\#22281E\] {
+  background-color: #E4F0DB !important;
+}
+
+[data-theme="light"] .bg-\[\#2D3527\] {
+  background-color: #D3DFC7 !important;
+}
+
+[data-theme="light"] .hover\:bg-\[\#1B2018\]:hover {
+  background-color: #E6EFE0 !important;
+}
