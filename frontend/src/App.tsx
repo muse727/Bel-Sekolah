@@ -1,6 +1,20 @@
 import React, { useEffect, useState, useRef, useId, useCallback } from 'react';
 import { LandingPage } from './components/LandingPage';
 
+/**
+ * Deteksi lingkungan desktop (Tauri) vs web.
+ * Di desktop, frontend berjalan dari tauri://localhost sehingga fetch relatif
+ * tidak akan menemukan backend. Backend desktop selalu listen di 127.0.0.1:8080.
+ */
+const IS_DESKTOP = typeof window !== 'undefined' &&
+  (window.location.protocol === 'tauri:' ||
+    (window as any).__TAURI_INTERNALS__ !== undefined);
+
+const API_BASE = IS_DESKTOP ? 'http://127.0.0.1:8080' : '';
+
+/** Helper: bungkus path API dengan base yang benar untuk tiap lingkungan. */
+const api = (path: string) => `${API_BASE}${path}`;
+
 interface Profile {
   id: number;
   code: string;
@@ -552,7 +566,7 @@ export default function App() {
 
   const refreshPairingStatus = async () => {
     try {
-      const res = await fetch('/api/pairing/status');
+      const res = await fetch(api('/api/pairing/status'));
       if (res.ok) {
         const data = await res.json();
         setPairing(data);
@@ -570,7 +584,7 @@ export default function App() {
   const handleSavePairing = async (enabled: boolean) => {
     setIsSavingPairing(true);
     try {
-      const res = await fetch('/api/pairing/config', {
+      const res = await fetch(api('/api/pairing/config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ central_server_url: pairingUrl, pairing_code: pairingCode, enabled }),
@@ -653,7 +667,7 @@ export default function App() {
   // Load status realtime tiap 1 detik (gunakan functional update agar tidak menimpa pilihan profil user!)
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch('/api/status');
+      const res = await fetch(api('/api/status'));
       if (res.ok) {
         const data: SystemStatus = await res.json();
         setStatus(data);
@@ -668,11 +682,11 @@ export default function App() {
   const fetchFullData = useCallback(async () => {
     try {
       const [resProfiles, resSchedules, resSb, resLogs, resAudios] = await Promise.all([
-        fetch('/api/profiles'),
-        fetch('/api/schedules'),
-        fetch('/api/soundboard'),
-        fetch('/api/logs'),
-        fetch('/api/audios'),
+        fetch(api('/api/profiles')),
+        fetch(api('/api/schedules')),
+        fetch(api('/api/soundboard')),
+        fetch(api('/api/logs')),
+        fetch(api('/api/audios')),
       ]);
 
       if (resProfiles.ok) {
@@ -699,24 +713,24 @@ export default function App() {
   }, [fetchStatus, fetchFullData]);
 
   const refreshSchedules = async () => {
-    const res = await fetch('/api/schedules');
+    const res = await fetch(api('/api/schedules'));
     if (res.ok) setSchedules(await res.json());
   };
 
   const refreshSoundboard = async () => {
-    const res = await fetch('/api/soundboard');
+    const res = await fetch(api('/api/soundboard'));
     if (res.ok) setSoundboard(await res.json());
   };
 
   const refreshAudios = async () => {
-    const res = await fetch('/api/audios');
+    const res = await fetch(api('/api/audios'));
     if (res.ok) setAudios(await res.json());
   };
 
   const handleActivateProfile = async (profileId: number, profileName?: string) => {
     setIsActivatingProfile(true);
     try {
-      const res = await fetch(`/api/profiles/${profileId}/activate`, { method: 'POST' });
+      const res = await fetch(api(`/api/profiles/${profileId}/activate`), { method: 'POST' });
       if (res.ok) {
         await Promise.all([fetchStatus(), fetchFullData()]);
         pushToast(
@@ -737,7 +751,7 @@ export default function App() {
 
   const handleTriggerBell = async (audioId: number, labelTitle: string, filename: string) => {
     try {
-      const res = await fetch(`/api/trigger-bell/${audioId}`, { method: 'POST' });
+      const res = await fetch(api(`/api/trigger-bell/${audioId}`), { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         if (data.muted) {
@@ -754,7 +768,7 @@ export default function App() {
           pushToast('info', 'Audio Diputar', `Memutar "${data.title}" ke pengeras suara.`);
         }
         fetchStatus();
-        fetch('/api/logs').then(r => r.json()).then(setLogs).catch(() => {});
+        fetch(api('/api/logs')).then(r => r.json()).then(setLogs).catch(() => {});
       } else {
         pushToast('error', 'Gagal Memutar Audio', 'File suara tidak ditemukan di server.');
       }
@@ -765,7 +779,7 @@ export default function App() {
 
   const handleToggleSchedule = async (item: ScheduleItem) => {
     try {
-      const res = await fetch(`/api/schedules/${item.id}/toggle`, { method: 'POST' });
+      const res = await fetch(api(`/api/schedules/${item.id}/toggle`), { method: 'POST' });
       if (res.ok) {
         await refreshSchedules();
         fetchStatus();
@@ -786,7 +800,7 @@ export default function App() {
       confirmLabel: 'Ya, Hapus Jadwal',
       variant: 'danger',
       onConfirm: async () => {
-        const res = await fetch(`/api/schedules/${item.id}`, { method: 'DELETE' });
+        const res = await fetch(api(`/api/schedules/${item.id}`), { method: 'DELETE' });
         if (res.ok) {
           await Promise.all([refreshSchedules(), fetchFullData()]);
           fetchStatus();
@@ -802,7 +816,7 @@ export default function App() {
     if (!status) return;
     const newMute = !status.settings.mute_mode;
     try {
-      const res = await fetch('/api/settings', {
+      const res = await fetch(api('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mute_mode: newMute }),
@@ -828,7 +842,7 @@ export default function App() {
     }
     setIsSavingSchoolName(true);
     try {
-      const res = await fetch('/api/settings', {
+      const res = await fetch(api('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ school_name: schoolNameInput.trim() }),
@@ -856,7 +870,7 @@ export default function App() {
     const formData = new FormData();
     formData.append('logo', logoFile);
     try {
-      const res = await fetch('/api/settings/logo', {
+      const res = await fetch(api('/api/settings/logo'), {
         method: 'POST',
         body: formData,
       });
@@ -882,7 +896,7 @@ export default function App() {
       confirmLabel: 'Reset Logo',
       variant: 'primary',
       onConfirm: async () => {
-        const res = await fetch('/api/settings/logo', { method: 'DELETE' });
+        const res = await fetch(api('/api/settings/logo'), { method: 'DELETE' });
         if (res.ok) {
           await fetchStatus();
           pushToast('success', 'Logo Direset', 'Logo sekolah dikembalikan ke default.');
@@ -895,7 +909,7 @@ export default function App() {
 
   const handleSaveSettings = async (payload: Record<string, unknown>, feedbackMessage?: string) => {
     try {
-      const res = await fetch('/api/settings', {
+      const res = await fetch(api('/api/settings'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -926,7 +940,7 @@ export default function App() {
 
     setIsSavingSchedule(true);
     try {
-      const res = await fetch('/api/schedules', {
+      const res = await fetch(api('/api/schedules'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -965,7 +979,7 @@ export default function App() {
 
     setIsSavingButton(true);
     try {
-      const res = await fetch('/api/soundboard', {
+      const res = await fetch(api('/api/soundboard'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -999,7 +1013,7 @@ export default function App() {
       confirmLabel: 'Hapus Tombol',
       variant: 'danger',
       onConfirm: async () => {
-        const res = await fetch(`/api/soundboard/${btn.id}`, { method: 'DELETE' });
+        const res = await fetch(api(`/api/soundboard/${btn.id}`), { method: 'DELETE' });
         if (res.ok) {
           await refreshSoundboard();
           pushToast('success', 'Tombol Dihapus', `Tombol "${btn.label}" berhasil dihapus.`);
@@ -1024,7 +1038,7 @@ export default function App() {
     formData.append('file', uploadFile);
 
     try {
-      const res = await fetch('/api/audios/upload', {
+      const res = await fetch(api('/api/audios/upload'), {
         method: 'POST',
         body: formData,
       });
@@ -1054,7 +1068,7 @@ export default function App() {
       confirmLabel: 'Ya, Hapus Permanen',
       variant: 'danger',
       onConfirm: async () => {
-        const res = await fetch(`/api/audios/${audio.id}`, { method: 'DELETE' });
+        const res = await fetch(api(`/api/audios/${audio.id}`), { method: 'DELETE' });
         if (res.ok) {
           await Promise.all([refreshAudios(), refreshSoundboard(), refreshSchedules()]);
           pushToast('success', 'Audio Dihapus', `"${audio.title}" telah dihapus dari server.`);
