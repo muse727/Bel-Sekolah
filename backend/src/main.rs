@@ -1,6 +1,6 @@
 use axum::{
     extract::{Multipart, Path, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{delete, get, post},
     Json, Router,
@@ -202,6 +202,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         run_scheduler(scheduler_pool).await;
     });
 
+    // Migrasi idempoten: tabel pairing_devices untuk sinkronisasi varian desktop.
+    if let Err(e) = sqlx::query(
+        r#"
+        CREATE TABLE IF NOT EXISTS pairing_devices (
+            id BIGINT AUTO_INCREMENT PRIMARY KEY,
+            device_id VARCHAR(100) NOT NULL UNIQUE,
+            device_name VARCHAR(150) NOT NULL DEFAULT '',
+            pairing_code VARCHAR(6) NOT NULL UNIQUE,
+            status ENUM('pending','paired','revoked') NOT NULL DEFAULT 'pending',
+            last_seen_at DATETIME NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB;
+        "#,
+    )
+    .execute(&pool)
+    .await
+    {
+        error!("Gagal migrasi pairing_devices: {}", e);
+    }
+
     let frontend_dist = std::env::var("FRONTEND_DIST_DIR")
         .unwrap_or_else(|_| "/home/muse/.openclaw/workspace/bel-sekolah/frontend/dist".to_string());
     let index_html = format!("{}/index.html", frontend_dist);
@@ -222,6 +242,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/settings", post(update_settings))
         .route("/api/settings/logo", post(upload_school_logo).delete(reset_school_logo))
         .route("/api/trigger-bell/:audio_id", post(trigger_manual_bell))
+        .route(
+            "/api/pairing/devices",
+            post(create_pairing_device).get(list_pairing_devices),
+        )
+        .route("/api/pairing/devices/:id", delete(revoke_pairing_device))
+        .route("/api/pairing/sync", get(pairing_sync))
+        .route("/api/pairing/heartbeat", post(pairing_heartbeat))
         .nest_service("/audio", ServeDir::new(&audio_dir))
         .nest_service("/branding", ServeDir::new(&branding_dir))
         .fallback_service(ServeDir::new(&frontend_dist).not_found_service(ServeFile::new(&index_html)))
@@ -1121,5 +1148,287 @@ async fn trigger_manual_bell(
         volume: settings.master_volume,
         muted: settings.mute_mode,
     })
+    .into_response()
+}
+
+// ===================== Pairing / Sinkronisasi Desktop =====================
+
+#[derive(Serialize, FromRow, Debug)]
+struct PairingDevice {
+    id: i64,
+    device_id: String,
+    device_name: String,
+    pairing_code: String,
+    status: String,
+    last_seen_at: Option<String>,
+    created_at: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct CreatePairingDeviceRequest {
+    device_id: String,
+    #[serde(default)]
+    device_name: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct PairingHeartbeatRequest {
+    #[serde(default)]
+    app_version: Option<String>,
+    #[serde(default)]
+    local_time: Option<String>,
+    #[serde(default)]
+    last_bell: Option<String>,
+    #[serde(default)]
+    #[allow(dead_code)]
+    extra: Option<serde_json::Value>,
+}
+
+fn generate_pairing_code() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    format!("{:06}", rng.gen_range(0..1_000_000))
+}
+
+async fn validate_pairing_code(
+    pool: &DbPool,
+    pairing_code: &str,
+) -> Result<PairingDevice, (StatusCode, serde_json::Value)> {
+    let device = sqlx::query_as::<_, PairingDevice>(
+        "SELECT id, device_id, device_name, pairing_code, status, last_seen_at, created_at FROM pairing_devices WHERE pairing_code = ? LIMIT 1",
+    )
+    .bind(pairing_code)
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            serde_json::json!({ "error": format!("Gagal memvalidasi kode pairing: {}", e) }),
+        )
+    })?
+    .ok_or_else(|| {
+        (
+            StatusCode::UNAUTHORIZED,
+            serde_json::json!({ "error": "Kode pairing tidak valid" }),
+        )
+    })?;
+
+    if device.status == "revoked" {
+        return Err((
+            StatusCode::FORBIDDEN,
+            serde_json::json!({ "error": "Perangkat telah dicabut (revoked)" }),
+        ));
+    }
+
+    Ok(device)
+}
+
+async fn create_pairing_device(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<CreatePairingDeviceRequest>,
+) -> impl IntoResponse {
+    let device_id = payload.device_id.trim().to_string();
+    if device_id.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(serde_json::json!({ "error": "device_id wajib diisi" })),
+        )
+            .into_response();
+    }
+
+    let device_name = payload
+        .device_name
+        .unwrap_or_else(|| "Desktop Sekolah".to_string());
+
+    // Coba beberapa kali untuk menghindari tabrakan pairing_code unik.
+    for _ in 0..5 {
+        let code = generate_pairing_code();
+        let res = sqlx::query(
+            r#"
+            INSERT INTO pairing_devices (device_id, device_name, pairing_code, status)
+            VALUES (?, ?, ?, 'pending')
+            "#,
+        )
+        .bind(&device_id)
+        .bind(&device_name)
+        .bind(&code)
+        .execute(&state.db)
+        .await;
+
+        match res {
+            Ok(done) => {
+                return (
+                    StatusCode::CREATED,
+                    Json(serde_json::json!({
+                        "id": done.last_insert_id(),
+                        "device_id": device_id,
+                        "device_name": device_name,
+                        "pairing_code": code,
+                        "status": "pending",
+                        "message": "Perangkat dibuat. Masukkan kode pairing di aplikasi desktop."
+                    })),
+                )
+                    .into_response()
+            }
+            Err(e) => {
+                let msg = e.to_string();
+                if !msg.contains("Duplicate") && !msg.contains("unique") {
+                    return (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(serde_json::json!({ "error": format!("Gagal membuat perangkat: {}", msg) })),
+                    )
+                        .into_response();
+                }
+            }
+        }
+    }
+
+    (
+        StatusCode::INTERNAL_SERVER_ERROR,
+        Json(serde_json::json!({ "error": "Gagal membuat kode pairing unik setelah 5 percobaan" })),
+    )
+        .into_response()
+}
+
+async fn list_pairing_devices(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let devices = sqlx::query_as::<_, PairingDevice>(
+        "SELECT id, device_id, device_name, pairing_code, status, last_seen_at, created_at FROM pairing_devices ORDER BY id DESC",
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    Json(devices)
+}
+
+async fn revoke_pairing_device(Path(id): Path<i64>, State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let res = sqlx::query("UPDATE pairing_devices SET status = 'revoked' WHERE id = ?")
+        .bind(id)
+        .execute(&state.db)
+        .await;
+
+    match res {
+        Ok(r) if r.rows_affected() > 0 => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "message": "Perangkat dicabut", "id": id })),
+        )
+            .into_response(),
+        _ => (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Perangkat tidak ditemukan" })),
+        )
+            .into_response(),
+    }
+}
+
+#[derive(Serialize)]
+struct PairingSyncResponse {
+    profiles: Vec<ScheduleProfile>,
+    schedules: Vec<ScheduleItem>,
+    audios: Vec<AudioItem>,
+    settings: AppSettings,
+}
+
+async fn pairing_sync(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    let Some(code) = headers.get("X-Pairing-Code").and_then(|v| v.to_str().ok()) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "error": "Header X-Pairing-Code wajib disertakan" })),
+        )
+            .into_response();
+    };
+
+    let device = match validate_pairing_code(&state.db, code).await {
+        Ok(d) => d,
+        Err((status, body)) => return (status, Json(body)).into_response(),
+    };
+
+    let _ = sqlx::query("UPDATE pairing_devices SET status = 'paired', last_seen_at = NOW() WHERE id = ?")
+        .bind(device.id)
+        .execute(&state.db)
+        .await;
+
+    let profiles = sqlx::query_as::<_, ScheduleProfile>(
+        r#"
+        SELECT sp.id, sp.code, sp.name, sp.description, sp.color, sp.is_active,
+               COUNT(si.id) as item_count
+        FROM schedule_profiles sp
+        LEFT JOIN schedule_items si ON si.profile_id = sp.id
+        GROUP BY sp.id
+        ORDER BY sp.id ASC
+        "#,
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let schedules = sqlx::query_as::<_, ScheduleItem>(
+        r#"
+        SELECT si.id, si.profile_id, si.day_of_week, TIME_FORMAT(si.bell_time, '%H:%i') as bell_time,
+               si.event_name, si.audio_id, si.volume, si.is_enabled,
+               al.title as audio_title, al.filename as audio_file
+        FROM schedule_items si
+        LEFT JOIN audio_library al ON si.audio_id = al.id
+        ORDER BY si.bell_time ASC
+        "#,
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let audios = sqlx::query_as::<_, AudioItem>(
+        "SELECT id, title, filename, file_path, duration_seconds, category FROM audio_library ORDER BY id ASC",
+    )
+    .fetch_all(&state.db)
+    .await
+    .unwrap_or_default();
+
+    let settings = load_settings(&state.db).await;
+
+    Json(PairingSyncResponse {
+        profiles,
+        schedules,
+        audios,
+        settings,
+    })
+    .into_response()
+}
+
+async fn pairing_heartbeat(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    Json(payload): Json<PairingHeartbeatRequest>,
+) -> impl IntoResponse {
+    let Some(code) = headers.get("X-Pairing-Code").and_then(|v| v.to_str().ok()) else {
+        return (
+            StatusCode::UNAUTHORIZED,
+            Json(serde_json::json!({ "error": "Header X-Pairing-Code wajib disertakan" })),
+        )
+            .into_response();
+    };
+
+    let device = match validate_pairing_code(&state.db, code).await {
+        Ok(d) => d,
+        Err((status, body)) => return (status, Json(body)).into_response(),
+    };
+
+    let _ = sqlx::query("UPDATE pairing_devices SET status = 'paired', last_seen_at = NOW() WHERE id = ?")
+        .bind(device.id)
+        .execute(&state.db)
+        .await;
+
+    info!(
+        "Heartbeat desktop: {} (versi {:?}, jam lokal {:?}, bel terakhir {:?})",
+        device.device_id, payload.app_version, payload.local_time, payload.last_bell
+    );
+
+    Json(serde_json::json!({
+        "message": "Heartbeat diterima",
+        "device_id": device.device_id,
+        "server_time": chrono::Utc::now().to_rfc3339()
+    }))
     .into_response()
 }

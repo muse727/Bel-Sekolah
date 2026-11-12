@@ -40,9 +40,57 @@ Backend live (MySQL) di `backend/` TIDAK diubah sama sekali.
 - [x] Tauri 2 setup di `desktop/app` (frontendDist `../../frontend/dist`, sidecar backend, ikon placeholder)
 - [x] Workflow GitHub Actions `.github/workflows/desktop-build.yml` — build .msi saat push tag `desktop-v*`
 - [ ] Build Windows .msi nyata via CI (butuh push tag ke GitHub; workflow siap)
-- [ ] Pairing desktop ke server pusat (sinkronisasi jadwal/audio MySQL ↔ SQLite) — belum dimulai
+- [x] Pairing desktop ke server pusat (sinkronisasi jadwal/audio MySQL ↔ SQLite)
 - [ ] Auto-update (Tauri updater + endpoint rilis) — belum dimulai
 - [ ] Ikon final branding sekolah (sekarang placeholder)
+
+## Pairing Desktop ↔ Server Pusat (2026-11-12)
+
+### Sisi server pusat (`backend/src/main.rs`, MySQL)
+- Tabel baru `pairing_devices` (id, device_id unique, device_name, pairing_code 6 digit unique,
+  status pending|paired|revoked, last_seen_at, created_at) — migrasi idempoten `CREATE TABLE IF NOT EXISTS`
+  dijalankan saat startup, aman untuk DB live.
+- Endpoint admin: `POST /api/pairing/devices` (buat device + kode), `GET /api/pairing/devices` (list),
+  `DELETE /api/pairing/devices/{id}` (revoke → status `revoked`).
+- Endpoint desktop (auth via header `X-Pairing-Code`): `GET /api/pairing/sync` (profiles + schedules
+  semua item + audios metadata + settings dalam satu JSON), `POST /api/pairing/heartbeat`
+  (update `last_seen_at`, catat versi app/jam lokal).
+- Kode pairing tidak valid → 401, revoked → 403. Endpoint lama tidak diubah.
+- Dependency baru: `rand` (generate kode 6 digit).
+
+### Sisi desktop (`desktop/backend/src/main.rs`, SQLite)
+- Tabel baru `pairing_status` (baris tunggal id=1): central_server_url, pairing_code,
+  pairing_enabled (default 0), last_sync_at, last_sync_ok, last_error — di `migrations/0001_init.sql`.
+- Background task sinkronisasi interval 60 detik (hanya jika enabled): GET sync pakai
+  `X-Pairing-Code` → upsert profiles/audios, mirror penuh schedule_items, upsert settings
+  (master_volume, mute_mode, school_name, timezone, time_format) — setting pairing sendiri
+  tersimpan terpisah di `pairing_status`, tidak akan tertimpa. POST heartbeat tiap siklus.
+- Endpoint baru: `GET /api/pairing/status` → {enabled, last_sync_at, last_sync_ok, error};
+  `POST /api/pairing/config` {central_server_url, pairing_code, enabled}.
+- Dependency baru: `reqwest` (rustls), `rand`.
+
+### Frontend
+- Section **"Pairing Server Pusat"** ditambahkan di tab Pengaturan: input URL + kode 6 digit,
+  toggle aktif/nonaktif, badge status (NONAKTIF / TERSINKRON / GAGAL SYNC) + waktu sync terakhir.
+  Build frontend lulus.
+
+### Verifikasi Nyata (lokal, port & DB terpisah, tidak menyentuh produksi)
+- `cargo check` backend pusat: **LULUS** — `Finished dev profile ... 0.52s`, 0 error 0 warning.
+- `cargo check` desktop backend: **LULUS** — `Finished dev profile ... 17.05s`, 0 error 0 warning.
+- Runtime desktop di port uji 8095 (SQLite `/tmp/bel-test-pairing.db`):
+  - `GET /api/pairing/status` awal: `{"enabled":false,"last_sync_at":null,"last_sync_ok":false,"error":null}`
+  - `POST /api/pairing/config` `{"central_server_url":"...","pairing_code":"123456","enabled":true}`
+    → `{"enabled":true,...}`; nilai tersimpan di SQLite terverifikasi.
+  - Saat pusat tak terjangkau: `last_sync_ok:false` dengan error `"Sync gagal: error sending request for url (http://127.0.0.1:9099/api/pairing/sync)"`.
+  - Dengan mock server pusat (port 9099): sync sukses — `last_sync_ok:true`, jadwal `Bel Masuk (pusat)`
+    dan audio `Bell Pusat` dari pusat tampil di `/api/schedules` & `/api/audios` lokal, settings
+    `school_name: "SIT Al-Mubarak (pusat)"` & `master_volume: 75` terpakai; heartbeat diterima mock:
+    `{"app_version":"0.1.0","local_time":"2026-11-12 11:42:53","last_bell":null}`.
+- Migrasi pusat tidak dijalankan terhadap DB produksi (instruksi tugas); statement `CREATE TABLE IF NOT EXISTS` idempoten.
+
+### Catatan
+- File audio tidak diunduh oleh sinkronisasi (hanya metadata); pemutaran di desktop tetap
+  memakai pustaka audio lokal. Pengunduhan file audio bisa jadi pengembangan berikutnya.
 
 ## Verifikasi Nyata
 

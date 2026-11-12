@@ -76,6 +76,17 @@ CREATE INDEX IF NOT EXISTS idx_played_at ON bell_logs (played_at);
 CREATE INDEX IF NOT EXISTS idx_is_active ON schedule_profiles (is_active);
 CREATE INDEX IF NOT EXISTS idx_category ON audio_library (category);
 
+CREATE TABLE IF NOT EXISTS pairing_status (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    central_server_url TEXT NOT NULL DEFAULT '',
+    pairing_code TEXT NOT NULL DEFAULT '',
+    pairing_enabled INTEGER NOT NULL DEFAULT 0,
+    last_sync_at TEXT,
+    last_sync_ok INTEGER NOT NULL DEFAULT 0,
+    last_error TEXT
+);
+INSERT OR IGNORE INTO pairing_status (id, central_server_url, pairing_code, pairing_enabled) VALUES (1, '', '', 0);
+
 -- Seeder
 INSERT OR IGNORE INTO schedule_profiles (id, code, name, description, color, is_active) VALUES
 (1, 'REGULER', 'Jadwal Reguler (Senin - Kamis)', 'Jadwal Kegiatan Belajar Mengajar Normal', '#10B981', 1),

@@ -24,6 +24,14 @@ struct AppState {
     branding_dir: String,
 }
 
+#[derive(Serialize, Debug, Clone)]
+struct PairingStateInfo {
+    enabled: bool,
+    last_sync_at: Option<String>,
+    last_sync_ok: bool,
+    error: Option<String>,
+}
+
 #[derive(Serialize, Deserialize, FromRow, Debug, Clone)]
 struct ScheduleProfile {
     id: i32,
@@ -223,6 +231,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         run_scheduler(scheduler_pool).await;
     });
 
+    // Task sinkronisasi ke server pusat (interval 60 detik, hanya jika pairing_enabled).
+    let pairing_pool = pool.clone();
+    tokio::spawn(async move {
+        run_pairing_sync(pairing_pool).await;
+    });
+
     let frontend_dist = std::env::var("FRONTEND_DIST_DIR").unwrap_or_else(|_| "data/frontend-dist".to_string());
     let index_html = format!("{}/index.html", frontend_dist);
 
@@ -242,6 +256,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/settings", post(update_settings))
         .route("/api/settings/logo", post(upload_school_logo).delete(reset_school_logo))
         .route("/api/trigger-bell/:audio_id", post(trigger_manual_bell))
+        .route("/api/pairing/status", get(get_pairing_status))
+        .route("/api/pairing/config", post(set_pairing_config))
         .nest_service("/audio", ServeDir::new(&audio_dir))
         .nest_service("/branding", ServeDir::new(&branding_dir))
         .fallback_service(ServeDir::new(&frontend_dist).not_found_service(ServeFile::new(&index_html)))
@@ -1142,4 +1158,326 @@ async fn trigger_manual_bell(
         muted: settings.mute_mode,
     })
     .into_response()
+}
+
+// ===================== Pairing ke Server Pusat =====================
+
+#[derive(Serialize, Deserialize, FromRow, Debug)]
+struct PairingRow {
+    id: i32,
+    central_server_url: String,
+    pairing_code: String,
+    pairing_enabled: i8,
+    last_sync_at: Option<String>,
+    last_sync_ok: i8,
+    last_error: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct SetPairingConfigRequest {
+    #[serde(default)]
+    central_server_url: Option<String>,
+    #[serde(default)]
+    pairing_code: Option<String>,
+    enabled: bool,
+}
+
+async fn load_pairing_row(pool: &DbPool) -> PairingRow {
+    sqlx::query_as::<_, PairingRow>(
+        "SELECT id, central_server_url, pairing_code, pairing_enabled, last_sync_at, last_sync_ok, last_error FROM pairing_status WHERE id = 1",
+    )
+    .fetch_one(pool)
+    .await
+    .unwrap_or(PairingRow {
+        id: 1,
+        central_server_url: String::new(),
+        pairing_code: String::new(),
+        pairing_enabled: 0,
+        last_sync_at: None,
+        last_sync_ok: 0,
+        last_error: None,
+    })
+}
+
+async fn record_sync_result(pool: &DbPool, ok: bool, error_msg: Option<&str>) {
+    let _ = sqlx::query(
+        "UPDATE pairing_status SET last_sync_at = datetime('now'), last_sync_ok = ?, last_error = ? WHERE id = 1",
+    )
+    .bind(if ok { 1 } else { 0 })
+    .bind(error_msg)
+    .execute(pool)
+    .await;
+}
+
+async fn run_pairing_sync(pool: DbPool) {
+    info!("Pairing sync loop aktif (interval 60 detik)...");
+    let client = match reqwest::Client::builder().timeout(Duration::from_secs(20)).build() {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Gagal membuat HTTP client pairing: {}", e);
+            return;
+        }
+    };
+
+    loop {
+        let row = load_pairing_row(&pool).await;
+        if row.pairing_enabled == 1 && !row.pairing_code.trim().is_empty() && !row.central_server_url.trim().is_empty() {
+            let base = row.central_server_url.trim().trim_end_matches('/').to_string();
+            let code = row.pairing_code.trim().to_string();
+
+            // 1. Sinkronisasi data (pull dari pusat).
+            match client
+                .get(format!("{}/api/pairing/sync", base))
+                .header("X-Pairing-Code", &code)
+                .send()
+                .await
+            {
+                Ok(resp) if resp.status().is_success() => {
+                    match resp.json::<serde_json::Value>().await {
+                        Ok(data) => match apply_sync_data(&pool, &data).await {
+                            Ok(stats) => {
+                                record_sync_result(&pool, true, None).await;
+                                info!(
+                                    "Sinkronisasi berhasil: {} profil, {} jadwal, {} audio",
+                                    stats.0, stats.1, stats.2
+                                );
+                            }
+                            Err(e) => {
+                                record_sync_result(&pool, false, Some(&e)).await;
+                                error!("Gagal menulis data sinkron ke SQLite: {}", e);
+                            }
+                        },
+                        Err(e) => {
+                            let msg = format!("Respons sync tidak valid: {}", e);
+                            record_sync_result(&pool, false, Some(&msg)).await;
+                        }
+                    }
+                }
+                Ok(resp) => {
+                    let msg = format!(
+                        "Sync gagal: server pusat merespons {}",
+                        resp.status()
+                    );
+                    record_sync_result(&pool, false, Some(&msg)).await;
+                }
+                Err(e) => {
+                    let msg = format!("Sync gagal: {}", e);
+                    record_sync_result(&pool, false, Some(&msg)).await;
+                }
+            }
+
+            // 2. Heartbeat ke pusat.
+            let heartbeat_body = serde_json::json!({
+                "app_version": env!("CARGO_PKG_VERSION"),
+                "local_time": chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+                "last_bell": serde_json::Value::Null,
+            });
+            let _ = client
+                .post(format!("{}/api/pairing/heartbeat", base))
+                .header("X-Pairing-Code", &code)
+                .json(&heartbeat_body)
+                .send()
+                .await;
+        }
+
+        tokio::time::sleep(Duration::from_secs(60)).await;
+    }
+}
+
+async fn apply_sync_data(pool: &DbPool, data: &serde_json::Value) -> Result<(usize, usize, usize), String> {
+    let mut tx = pool
+        .begin()
+        .await
+        .map_err(|e| format!("Gagal memulai transaksi: {}", e))?;
+
+    let empty_arr = Vec::new();
+    let profiles = data
+        .get("profiles")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty_arr);
+    let schedules = data
+        .get("schedules")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty_arr);
+    let audios = data
+        .get("audios")
+        .and_then(|v| v.as_array())
+        .unwrap_or(&empty_arr);
+    let settings = data.get("settings");
+
+    // Profil jadwal (sinkronkan juga status aktif agar desktop mengikuti pusat).
+    for p in profiles {
+        let res = sqlx::query(
+            r#"
+            INSERT INTO schedule_profiles (id, code, name, description, color, is_active)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                code = excluded.code, name = excluded.name, description = excluded.description,
+                color = excluded.color, is_active = excluded.is_active, updated_at = datetime('now')
+            "#,
+        )
+        .bind(p.get("id").and_then(|v| v.as_i64()).unwrap_or(0) as i32)
+        .bind(p.get("code").and_then(|v| v.as_str()).unwrap_or(""))
+        .bind(p.get("name").and_then(|v| v.as_str()).unwrap_or(""))
+        .bind(p.get("description").and_then(|v| v.as_str()))
+        .bind(p.get("color").and_then(|v| v.as_str()))
+        .bind(p.get("is_active").and_then(|v| v.as_i64()).unwrap_or(0) as i8)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Gagal upsert profile: {}", e))?;
+        let _ = res;
+    }
+
+    // Pustaka audio (metadata; file audio tetap lokal).
+    for a in audios {
+        sqlx::query(
+            r#"
+            INSERT INTO audio_library (id, title, filename, file_path, duration_seconds, category)
+            VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                title = excluded.title, filename = excluded.filename, file_path = excluded.file_path,
+                duration_seconds = excluded.duration_seconds, category = excluded.category,
+                updated_at = datetime('now')
+            "#,
+        )
+        .bind(a.get("id").and_then(|v| v.as_i64()).unwrap_or(0) as i32)
+        .bind(a.get("title").and_then(|v| v.as_str()).unwrap_or(""))
+        .bind(a.get("filename").and_then(|v| v.as_str()).unwrap_or(""))
+        .bind(a.get("file_path").and_then(|v| v.as_str()).unwrap_or(""))
+        .bind(a.get("duration_seconds").and_then(|v| v.as_i64()).map(|v| v as i32))
+        .bind(a.get("category").and_then(|v| v.as_str()))
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Gagal upsert audio: {}", e))?;
+    }
+
+    // Item jadwal: hapus lalu tulis ulang (mirror penuh dari pusat).
+    sqlx::query("DELETE FROM schedule_items")
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Gagal membersihkan schedule_items: {}", e))?;
+    for s in schedules {
+        sqlx::query(
+            r#"
+            INSERT INTO schedule_items (id, profile_id, day_of_week, bell_time, event_name, audio_id, volume, is_enabled)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(s.get("id").and_then(|v| v.as_i64()).unwrap_or(0) as i32)
+        .bind(s.get("profile_id").and_then(|v| v.as_i64()).unwrap_or(0) as i32)
+        .bind(s.get("day_of_week").and_then(|v| v.as_str()).unwrap_or("SEMUA_HARI"))
+        .bind(s.get("bell_time").and_then(|v| v.as_str()).unwrap_or("00:00"))
+        .bind(s.get("event_name").and_then(|v| v.as_str()).unwrap_or(""))
+        .bind(s.get("audio_id").and_then(|v| v.as_i64()).unwrap_or(0) as i32)
+        .bind(s.get("volume").and_then(|v| v.as_i64()).map(|v| v as i32))
+        .bind(s.get("is_enabled").and_then(|v| v.as_i64()).unwrap_or(1) as i8)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| format!("Gagal upsert schedule_item: {}", e))?;
+    }
+
+    // Settings dari pusat: jangan tampilkan nilai kosong, biarkan setting lokal jika tidak ada.
+    if let Some(s) = settings {
+        for (key, val) in [
+            ("school_name", s.get("school_name")),
+            ("timezone_name", s.get("timezone_name")),
+            ("timezone_offset_hours", s.get("timezone_offset_hours")),
+            ("time_format", s.get("time_format")),
+        ] {
+            let str_val = val.and_then(|v| v.as_str()).map(|v| v.to_string()).or_else(|| {
+                val.and_then(|v| v.as_i64()).map(|v| v.to_string())
+            });
+            if let Some(v) = str_val {
+                if !v.trim().is_empty() {
+                    sqlx::query(
+                        "INSERT INTO system_settings (setting_key, setting_value) VALUES (?, ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = datetime('now')",
+                    )
+                    .bind(key)
+                    .bind(&v)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| format!("Gagal upsert setting {}: {}", key, e))?;
+                }
+            }
+        }
+        // master_volume & mute_mode juga ikut disinkron (setting pairing desktop tersimpan
+        // di tabel pairing_status, jadi tidak akan tertimpa).
+        if let Some(vol) = s.get("master_volume").and_then(|v| v.as_i64()) {
+            sqlx::query(
+                "INSERT INTO system_settings (setting_key, setting_value) VALUES ('master_volume', ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = datetime('now')",
+            )
+            .bind(vol.to_string())
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Gagal upsert master_volume: {}", e))?;
+        }
+        if let Some(mute) = s.get("mute_mode").and_then(|v| v.as_bool()) {
+            sqlx::query(
+                "INSERT INTO system_settings (setting_key, setting_value) VALUES ('mute_mode', ?) ON CONFLICT(setting_key) DO UPDATE SET setting_value = excluded.setting_value, updated_at = datetime('now')",
+            )
+            .bind(if mute { "true" } else { "false" })
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| format!("Gagal upsert mute_mode: {}", e))?;
+        }
+    }
+
+    tx.commit()
+        .await
+        .map_err(|e| format!("Gagal commit transaksi sinkronisasi: {}", e))?;
+
+    Ok((profiles.len(), schedules.len(), audios.len()))
+}
+
+async fn get_pairing_status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let row = load_pairing_row(&state.db).await;
+    Json(PairingStateInfo {
+        enabled: row.pairing_enabled == 1,
+        last_sync_at: row.last_sync_at,
+        last_sync_ok: row.last_sync_ok == 1,
+        error: row.last_error,
+    })
+}
+
+async fn set_pairing_config(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<SetPairingConfigRequest>,
+) -> impl IntoResponse {
+    // Jika URL/kode tidak dikirim, pertahankan nilai lama.
+    let existing = load_pairing_row(&state.db).await;
+    let url = payload
+        .central_server_url
+        .map(|s| s.trim().trim_end_matches('/').to_string())
+        .unwrap_or(existing.central_server_url);
+    let code = payload
+        .pairing_code
+        .map(|s| s.trim().to_string())
+        .unwrap_or(existing.pairing_code);
+
+    let res = sqlx::query(
+        "UPDATE pairing_status SET central_server_url = ?, pairing_code = ?, pairing_enabled = ? WHERE id = 1",
+    )
+    .bind(&url)
+    .bind(&code)
+    .bind(if payload.enabled { 1 } else { 0 })
+    .execute(&state.db)
+    .await;
+
+    match res {
+        Ok(_) => {
+            let row = load_pairing_row(&state.db).await;
+            Json(PairingStateInfo {
+                enabled: row.pairing_enabled == 1,
+                last_sync_at: row.last_sync_at,
+                last_sync_ok: row.last_sync_ok == 1,
+                error: row.last_error,
+            })
+            .into_response()
+        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("Gagal menyimpan konfigurasi pairing: {}", e) })),
+        )
+            .into_response(),
+    }
 }

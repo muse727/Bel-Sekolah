@@ -531,6 +531,53 @@ export default function App() {
   const [schoolNameInput, setSchoolNameInput] = useState<string>('');
   const [isSavingSchoolName, setIsSavingSchoolName] = useState<boolean>(false);
 
+  // Pairing ke server pusat (desktop)
+  const [pairing, setPairing] = useState<{enabled: boolean; last_sync_at: string | null; last_sync_ok: boolean; error: string | null} | null>(null);
+  const [pairingUrl, setPairingUrl] = useState('');
+  const [pairingCode, setPairingCode] = useState('');
+  const [pairingEnabled, setPairingEnabled] = useState(false);
+  const [isSavingPairing, setIsSavingPairing] = useState(false);
+
+  const refreshPairingStatus = async () => {
+    try {
+      const res = await fetch('/api/pairing/status');
+      if (res.ok) {
+        const data = await res.json();
+        setPairing(data);
+        setPairingEnabled(Boolean(data.enabled));
+      }
+    } catch { /* desktop offline */ }
+  };
+
+  useEffect(() => {
+    refreshPairingStatus();
+    const t = setInterval(refreshPairingStatus, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  const handleSavePairing = async (enabled: boolean) => {
+    setIsSavingPairing(true);
+    try {
+      const res = await fetch('/api/pairing/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ central_server_url: pairingUrl, pairing_code: pairingCode, enabled }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setPairing(data);
+        setPairingEnabled(Boolean(data.enabled));
+        pushToast('success', 'Pairing Disimpan', enabled ? 'Sinkronisasi ke server pusat diaktifkan.' : 'Sinkronisasi dimatikan.');
+      } else {
+        pushToast('error', 'Gagal', 'Tidak dapat menyimpan konfigurasi pairing.');
+      }
+    } catch {
+      pushToast('error', 'Gagal', 'Endpoint pairing tidak tersedia.');
+    } finally {
+      setIsSavingPairing(false);
+    }
+  };
+
   // Toast & Custom Confirm Modal states
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
@@ -2181,6 +2228,85 @@ export default function App() {
                   }
                   className="w-full accent-[#D4FA3C]"
                 />
+              </div>
+
+              {/* Pairing Server Pusat (desktop) */}
+              <div className="bg-[#141712] border border-[#22281E] p-4 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-[#A9B2A3] uppercase tracking-wider">
+                    Pairing Server Pusat
+                  </label>
+                  {pairing && (
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                        pairing.enabled
+                          ? pairing.last_sync_ok
+                            ? 'bg-[#1F2918] text-[#D4FA3C] border-[#354627]'
+                            : 'bg-[#2E1818] text-[#FCA5A5] border-[#5E2B2B]'
+                          : 'bg-[#20251D] text-[#9CA695] border-[#2D3627]'
+                      }`}
+                    >
+                      {!pairing.enabled
+                        ? 'NONAKTIF'
+                        : pairing.last_sync_ok
+                          ? 'TERSINKRON'
+                          : 'GAGAL SYNC'}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-[#9CA695]">
+                  Hubungkan aplikasi desktop ini ke server pusat (bell.sitalmubarak.com) agar jadwal,
+                  audio, dan pengaturan tersinkron otomatis tiap 60 detik. Kode pairing dibuat admin
+                  di server pusat.
+                </p>
+                {pairing?.last_sync_at && (
+                  <p className="text-[11px] text-[#9CA695]">
+                    Sinkronisasi terakhir: <span className="font-mono text-[#D4FA3C]">{pairing.last_sync_at}</span>
+                    {pairing.error ? ` — ${pairing.error}` : ''}
+                  </p>
+                )}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <input
+                    type="url"
+                    placeholder="URL server pusat, misal: https://bell.sitalmubarak.com"
+                    value={pairingUrl}
+                    onChange={e => setPairingUrl(e.target.value)}
+                    className="bg-[#1F241C] border border-[#313B2A] rounded-xl px-3.5 py-2 text-sm text-[#F4F6F0] focus:border-[#D4FA3C] focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    placeholder="Kode pairing 6 digit"
+                    value={pairingCode}
+                    onChange={e => setPairingCode(e.target.value.replace(/[^0-9]/g, ''))}
+                    className="bg-[#1F241C] border border-[#313B2A] rounded-xl px-3.5 py-2 text-sm font-mono tracking-widest text-[#F4F6F0] focus:border-[#D4FA3C] focus:outline-none"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setPairingEnabled(prev => !prev)}
+                    className={`relative w-12 h-6 rounded-full transition-colors shrink-0 ${
+                      pairingEnabled ? 'bg-[#D4FA3C]' : 'bg-[#313B2A]'
+                    }`}
+                    aria-label="Aktifkan sinkronisasi pairing"
+                  >
+                    <span
+                      className={`absolute top-0.5 w-5 h-5 rounded-full transition-all ${
+                        pairingEnabled ? 'left-6 bg-[#0E100D]' : 'left-0.5 bg-[#9CA695]'
+                      }`}
+                    />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isSavingPairing}
+                    onClick={() => handleSavePairing(pairingEnabled)}
+                    className="px-4 py-2 bg-[#D4FA3C] hover:bg-[#C2E834] text-[#0E100D] font-bold text-xs rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {isSavingPairing ? 'Menyimpan...' : 'Simpan Pairing'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
