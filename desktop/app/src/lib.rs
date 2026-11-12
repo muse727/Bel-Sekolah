@@ -27,9 +27,17 @@ pub fn run() {
             if sidecar.exists() {
                 // Backend sidecar mewarisi cwd aplikasi; DATABASE_URL default
                 // sqlite://data/bel-sekolah.db relatif terhadap cwd tersebut.
-                let _ = std::process::Command::new(&sidecar)
-                    .env("SERVER_PORT", "8080")
-                    .spawn();
+                let mut cmd = std::process::Command::new(&sidecar);
+                cmd.env("SERVER_PORT", "8080");
+
+                #[cfg(windows)]
+                {
+                    use std::os::windows::process::CommandExt;
+                    // CREATE_NO_WINDOW = 0x08000000 agar tidak memunculkan jendela console hitam (cmd)
+                    cmd.creation_flags(0x08000000);
+                }
+
+                let _ = cmd.spawn();
             } else {
                 eprintln!(
                     "Sidecar backend tidak ditemukan di {} (mode dev: jalankan backend manual)",
