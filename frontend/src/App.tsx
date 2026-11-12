@@ -665,12 +665,33 @@ export default function App() {
   }, []);
 
   // Load status realtime tiap 1 detik (gunakan functional update agar tidak menimpa pilihan profil user!)
+  // Jam lokal komputer (untuk mode offline / desktop tanpa koneksi server)
+  const [localClock, setLocalClock] = useState<{ time: string; day: string; date: string } | null>(null);
+  const [serverOnline, setServerOnline] = useState<boolean>(true);
+
+  useEffect(() => {
+    const DAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+    const tick = () => {
+      const now = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      setLocalClock({
+        time: `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`,
+        day: DAY_NAMES[now.getDay()],
+        date: `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}`,
+      });
+    };
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch(api('/api/status'));
       if (res.ok) {
         const data: SystemStatus = await res.json();
         setStatus(data);
+        setServerOnline(true);
         setSelectedProfileId(prev => prev ?? (data.active_profile ? data.active_profile.id : null));
         setSchoolNameInput(prev => prev === '' ? data.settings.school_name : prev);
       }
@@ -699,6 +720,7 @@ export default function App() {
       if (resLogs.ok) setLogs(await resLogs.json());
       if (resAudios.ok) setAudios(await resAudios.json());
     } catch {
+      setServerOnline(false);
       pushToast('error', 'Gagal Memuat Data', 'Tidak dapat terhubung ke server bel sekolah.');
     } finally {
       setIsInitialLoading(false);
@@ -1252,13 +1274,22 @@ export default function App() {
               </button>
 
               <div className="bg-[#171A15] border border-[#272E22] px-3.5 py-1.5 rounded-xl text-right min-w-[148px]">
-                {status ? (
+                {status && serverOnline ? (
                   <>
                     <div className="text-sm font-mono font-bold text-[#D4FA3C] tracking-wide">
                       {status.current_time}
                     </div>
                     <div className="text-[10px] text-[#9CA695] font-medium">
                       {status.current_day}, {status.current_date} ({status.settings.timezone_name.split(' ')[0]})
+                    </div>
+                  </>
+                ) : localClock ? (
+                  <>
+                    <div className="text-sm font-mono font-bold text-[#F4F6F0] tracking-wide">
+                      {localClock.time}
+                    </div>
+                    <div className="text-[10px] text-[#9CA695] font-medium">
+                      {localClock.day}, {localClock.date} (Offline · Jam PC)
                     </div>
                   </>
                 ) : (
