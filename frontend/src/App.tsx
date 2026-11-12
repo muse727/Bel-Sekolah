@@ -1306,7 +1306,7 @@ export default function App() {
                     className="w-full h-full object-contain p-1 bg-white"
                   />
                 ) : (
-                  <span aria-hidden="true">🔔</span>
+                  <IconMusic className="w-5 h-5 text-[#0E100D]" />
                 )}
               </div>
               <div className="min-w-0">
@@ -2262,7 +2262,7 @@ export default function App() {
                           className="w-full h-full object-contain"
                         />
                       ) : (
-                        <span className="text-2xl" aria-hidden="true">🔔</span>
+                        <IconMusic className="w-6 h-6 text-[#9CA695]" />
                       )}
                     </div>
                     <div>
