@@ -8,6 +8,27 @@ Tersedia dalam 2 varian arsitektur:
 
 ---
 
+## Tampilan Antarmuka Aplikasi
+
+![Preview Dashboard Bel Sekolah](docs/preview.png)
+
+---
+
+## Unduh Aplikasi (Windows MSI Installer)
+
+Installer aplikasi Windows (`.msi`) di-build secara otomatis dan siap diunduh:
+
+👉 **[Klik Di Sini untuk Mengunduh Installer Windows Terbaru](https://github.com/muse727/Bel-Sekolah/actions/runs/20054778330)**
+
+### Langkah Cepat Pengunduhan & Instalasi:
+1. Klik link di atas (atau buka tab **[Actions](https://github.com/muse727/Bel-Sekolah/actions)**).
+2. Scroll ke bagian paling bawah di panel **Artifacts**.
+3. Klik file **`bel-sekolah-windows-msi`** (file `.zip` akan otomatis terunduh).
+4. Ekstrak file zip, lalu jalankan file installer `.msi` di komputer Windows.
+5. *Catatan:* Jika muncul peringatan *"Windows protected your PC"*, cukup klik **More info** lalu pilih **Run anyway**.
+
+---
+
 ## Fitur Utama
 
 - **Otomatisasi Jadwal Bel:** Jadwal fleksibel per hari (Senin–Sabtu) dengan presisi detik.
@@ -17,18 +38,6 @@ Tersedia dalam 2 varian arsitektur:
 - **Kustomisasi Sekolah:** Ganti nama sekolah dan upload logo sekolah langsung dari dashboard.
 - **Tema Gelap & Terang:** Pilihan tema Citron Neon Dark & High-Contrast Light Mode.
 - **Pairing & Sinkronisasi:** Komputer sekolah dihubungkan via kode 6-digit ke server pusat (`https://bell.sitalmubarak.com`) untuk pemantauan dan kontrol jarak jauh.
-
----
-
-## Panduan Pengunduhan (Windows Desktop)
-
-Installer aplikasi Windows (`.msi`) di-build secara otomatis melalui GitHub Actions:
-
-1. Buka menu tab **[Actions](https://github.com/muse727/Bel-Sekolah/actions)** di repository ini.
-2. Pilih run workflow terbaru pada daftar (**Desktop Build (Windows MSI)**).
-3. Scroll ke bagian paling bawah ke panel **Artifacts**.
-4. Klik **`bel-sekolah-windows-msi`** untuk mengunduh installer.
-5. Ekstrak file zip dan jalankan file installer `.msi` di PC/Laptop Windows sekolah.
 
 ---
 
@@ -42,6 +51,7 @@ Installer aplikasi Windows (`.msi`) di-build secara otomatis melalui GitHub Acti
 │   └── app/          # Wrapper desktop native (Tauri 2)
 ├── database/         # DDL Skema database MySQL
 ├── audio-assets/     # Master rekaman suara bel & nada pengumuman
+├── docs/             # Dokumentasi aset & screenshot preview
 └── .github/          # CI/CD workflows untuk auto-build Windows MSI
 ```
 
