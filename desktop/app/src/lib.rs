@@ -1,10 +1,10 @@
 use tauri::Manager;
 
-/// Path ke binary sidecar backend (bel-sekolah-backend) di samping executable.
+/// Path ke binary sidecar backend (bel-sekolah-desktop-backend) di samping executable.
 #[cfg(windows)]
-const SIDECAR_NAME: &str = "bel-sekolah-backend.exe";
+const SIDECAR_NAME: &str = "bel-sekolah-desktop-backend.exe";
 #[cfg(not(windows))]
-const SIDECAR_NAME: &str = "bel-sekolah-backend";
+const SIDECAR_NAME: &str = "bel-sekolah-desktop-backend";
 
 pub fn run() {
     tauri::Builder::default()
