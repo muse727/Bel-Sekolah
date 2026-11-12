@@ -5,6 +5,9 @@ on:
     tags:
       - 'desktop-v*'
 
+permissions:
+  contents: write
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -47,3 +50,13 @@ jobs:
         with:
           name: bel-sekolah-windows-msi
           path: desktop/app/target/release/bundle/msi/*.msi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            desktop/app/target/release/bundle/msi/*.msi
+          draft: false
+          prerelease: false
+          generate_release_notes: true

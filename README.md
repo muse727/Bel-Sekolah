@@ -16,16 +16,17 @@ Tersedia dalam 2 varian arsitektur:
 
 ## Unduh Aplikasi (Windows MSI Installer)
 
-Installer aplikasi Windows (`.msi`) di-build secara otomatis dan siap diunduh:
+Installer aplikasi Windows (`.msi`) di-build otomatis untuk setiap versi rilis.
 
-👉 **[Klik Di Sini untuk Mengunduh Installer Windows Terbaru](https://github.com/muse727/Bel-Sekolah/actions/runs/20054778330)**
+👉 **[Klik Di Sini untuk Melihat Rilis & Unduh Installer Windows](https://github.com/muse727/Bel-Sekolah/releases)**
 
-### Langkah Cepat Pengunduhan & Instalasi:
-1. Klik link di atas (atau buka tab **[Actions](https://github.com/muse727/Bel-Sekolah/actions)**).
-2. Scroll ke bagian paling bawah di panel **Artifacts**.
-3. Klik file **`bel-sekolah-windows-msi`** (file `.zip` akan otomatis terunduh).
-4. Ekstrak file zip, lalu jalankan file installer `.msi` di komputer Windows.
-5. *Catatan:* Jika muncul peringatan *"Windows protected your PC"*, cukup klik **More info** lalu pilih **Run anyway**.
+### Cara Unduh dari GitHub Actions (Alternatif):
+1. Buka tab **[Actions](https://github.com/muse727/Bel-Sekolah/actions)** di repository ini (pastikan sudah login akun GitHub).
+2. Klik baris build terbaru yang centang hijau.
+3. Scroll ke bagian paling bawah di panel **Artifacts**.
+4. Klik **`bel-sekolah-windows-msi`** untuk mengunduh file zip installer.
+5. Ekstrak dan jalankan file `.msi` di PC/laptop Windows sekolah.
+6. *Catatan:* Jika muncul layar biru *"Windows protected your PC"*, klik **More info** lalu pilih **Run anyway**.
 
 ---
 
