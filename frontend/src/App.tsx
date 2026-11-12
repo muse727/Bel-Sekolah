@@ -648,7 +648,7 @@ export default function App() {
 
   // Generate QR Code setiap kali tunnel aktif (web Vercel + target + token)
   useEffect(() => {
-    const VERCEL_DASH = 'https://bel-sekolah.vercel.app/';
+    const VERCEL_DASH = 'https://bel-sekolah-taupe.vercel.app/';
     if (tunnel?.running && tunnel.public_url && tunnel.access_token) {
       import('qrcode').then(QR => {
         QR.default.toDataURL(`${VERCEL_DASH}?target=${encodeURIComponent(tunnel.public_url!)}&key=${tunnel.access_token}`, {
@@ -1306,14 +1306,7 @@ export default function App() {
                     className="w-full h-full object-contain p-1 bg-white"
                   />
                 ) : (
-                  <img
-                    src="/logo-sekolah.png"
-                    alt={status?.settings.school_name || 'Logo Sekolah'}
-                    className="w-full h-full object-contain p-1 bg-white"
-                    onError={(e) => {
-                      (e.currentTarget as HTMLImageElement).style.display = 'none';
-                    }}
-                  />
+                  <span aria-hidden="true">🔔</span>
                 )}
               </div>
               <div className="min-w-0">
@@ -1322,7 +1315,7 @@ export default function App() {
                   <span className="inline-block w-2 h-2 rounded-full bg-[#D4FA3C]" title="Server Aktif"></span>
                 </div>
                 <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#F4F6F0] truncate">
-                  Bel Sekolah {status?.settings.school_name || 'Mutiara Hati'}
+                  Bel Sekolah{status?.settings.school_name ? ` — ${status.settings.school_name}` : ''}
                 </h1>
               </div>
             </div>
@@ -1775,7 +1768,7 @@ export default function App() {
                       <div className="p-3 rounded-2xl bg-[#141712] border border-[#22281E] flex items-center justify-between">
                         <span className="text-[#9CA695]">Sekolah Terdaftar</span>
                         <strong className="text-[#F4F6F0] text-right truncate max-w-[150px]">
-                          {status?.settings.school_name || 'Mutiara Hati'}
+                          {status?.settings.school_name || '-'}
                         </strong>
                       </div>
 
@@ -2262,14 +2255,15 @@ export default function App() {
                 <div className="pt-3 border-t border-[#22281E] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
                     <div className="w-14 h-14 rounded-2xl bg-white border border-[#272E22] flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-sm">
-                      <img
-                        src={status?.settings.school_logo || '/logo-sekolah.png'}
-                        alt="Logo Sekolah"
-                        className="w-full h-full object-contain"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).src = '/logo-sekolah.png';
-                        }}
-                      />
+                      {status?.settings.school_logo ? (
+                        <img
+                          src={status.settings.school_logo}
+                          alt="Logo Sekolah"
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <span className="text-2xl" aria-hidden="true">🔔</span>
+                      )}
                     </div>
                     <div>
                       <h4 className="text-xs font-bold text-[#F4F6F0]">Logo Sekolah Saat Ini</h4>
@@ -2610,7 +2604,7 @@ export default function App() {
 
       {/* FOOTER */}
       <footer className="max-w-7xl w-full mx-auto mt-8 pt-4 border-t border-[#22281E] flex flex-col sm:flex-row items-center justify-between text-xs text-[#9CA695] gap-2">
-        <p>Sistem Bel Sekolah Otomatis — Mutiara Hati</p>
+        <p>Sistem Bel Sekolah Otomatis</p>
         <p className="font-mono">Domain: bell.sitalmubarak.com</p>
       </footer>
 
