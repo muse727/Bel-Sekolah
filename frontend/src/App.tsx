@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useId, useCallback } from 'react';
+import { LandingPage } from './components/LandingPage';
 
 interface Profile {
   id: number;
@@ -491,6 +492,17 @@ function GridSkeleton({ count = 6 }: { count?: number }) {
 }
 
 export default function App() {
+  const [currentView, setCurrentView] = useState<'landing' | 'app'>(() => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const search = window.location.search;
+      if (path === '/app' || search.includes('view=app')) {
+        return 'app';
+      }
+    }
+    return 'landing';
+  });
+
   const [activeTab, setActiveTab] = useState<'overview' | 'schedules' | 'soundboard' | 'audios' | 'settings' | 'logs'>('overview');
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -1083,6 +1095,17 @@ export default function App() {
   const currentProfileObj = profiles.find(p => p.id === selectedProfileId) || status?.active_profile || null;
   const isSelectedProfileActive = currentProfileObj ? currentProfileObj.is_active === 1 : false;
 
+  if (currentView === 'landing') {
+    return (
+      <LandingPage
+        onOpenApp={() => {
+          setCurrentView('app');
+          window.history.pushState({}, '', '/app');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#0E100D] text-[#F4F6F0] p-3 sm:p-6 lg:p-8 flex flex-col justify-between selection:bg-[#D4FA3C] selection:text-[#0E100D]">
       <audio
@@ -1241,6 +1264,16 @@ export default function App() {
             className="w-fit max-w-full"
             innerClassName="gap-1.5 bg-[#171A15] p-1.5 rounded-full border border-[#272E22]"
           >
+            <button
+              type="button"
+              onClick={() => {
+                setCurrentView('landing');
+                window.history.pushState({}, '', '/');
+              }}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 text-[#A9B2A3] hover:text-[#F4F6F0] hover:bg-[#20251D] flex items-center gap-1.5"
+            >
+              <span>← Landing</span>
+            </button>
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
