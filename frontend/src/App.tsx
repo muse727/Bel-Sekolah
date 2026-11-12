@@ -2,18 +2,43 @@ import React, { useEffect, useState, useRef, useId, useCallback } from 'react';
 import { LandingPage } from './components/LandingPage';
 
 /**
- * Deteksi lingkungan desktop (Tauri) vs web.
- * Di desktop, frontend berjalan dari tauri://localhost sehingga fetch relatif
- * tidak akan menemukan backend. Backend desktop selalu listen di 127.0.0.1:8080.
+ * Mode Remote: web dihosting di Vercel, menerima target PC sekolah via
+ * query param ?target=https://xxx.trycloudflare.com&key=ABCD1234.
+ * Semua request API diteruskan ke target tersebut dengan header X-Access-Token.
  */
+function resolveRemoteTarget(): { base: string; token: string | null } | null {
+  if (typeof window === 'undefined') return null;
+  const params = new URLSearchParams(window.location.search);
+  const target = params.get('target');
+  if (!target || !/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/i.test(target.trim())) return null;
+  // Token dipersist di localStorage agar sesi tetap hidup saat refresh/hp lock
+  let token = params.get('key');
+  if (token) localStorage.setItem('bel_remote_token', token);
+  else token = localStorage.getItem('bel_remote_token');
+  return { base: target.trim().replace(/\/$/, ''), token: token || null };
+}
+
+const REMOTE = resolveRemoteTarget();
+
 const IS_DESKTOP = typeof window !== 'undefined' &&
   (window.location.protocol === 'tauri:' ||
     (window as any).__TAURI_INTERNALS__ !== undefined);
 
-const API_BASE = IS_DESKTOP ? 'http://127.0.0.1:8080' : '';
+const API_BASE = REMOTE ? REMOTE.base : IS_DESKTOP ? 'http://127.0.0.1:8080' : '';
 
 /** Helper: bungkus path API dengan base yang benar untuk tiap lingkungan. */
 const api = (path: string) => `${API_BASE}${path}`;
+
+/** Header otentikasi remote (dikirim hanya saat mode remote aktif). */
+const remoteHeaders = (): Record<string, string> =>
+  REMOTE && REMOTE.token ? { 'X-Access-Token': REMOTE.token } : {};
+
+/** Fetch pembungkus: base otomatis + header token saat mode remote. */
+const apiFetch = (path: string, init?: RequestInit): Promise<Response> =>
+  fetch(api(path), {
+    ...init,
+    headers: { ...remoteHeaders(), ...(init?.headers || {}) },
+  });
 
 interface Profile {
   id: number;
@@ -564,9 +589,14 @@ export default function App() {
   const [pairingEnabled, setPairingEnabled] = useState(false);
   const [isSavingPairing, setIsSavingPairing] = useState(false);
 
+  // Remote tunnel (akses dari HP via QR Code / Cloudflare Quick Tunnel)
+  const [tunnel, setTunnel] = useState<{ running: boolean; public_url: string | null; expires_at: string | null; access_token: string | null } | null>(null);
+  const [isTunnelLoading, setIsTunnelLoading] = useState(false);
+  const [tunnelQrDataUrl, setTunnelQrDataUrl] = useState<string | null>(null);
+
   const refreshPairingStatus = async () => {
     try {
-      const res = await fetch(api('/api/pairing/status'));
+      const res = await apiFetch('/api/pairing/status');
       if (res.ok) {
         const data = await res.json();
         setPairing(data);
@@ -575,8 +605,68 @@ export default function App() {
     } catch { /* desktop offline */ }
   };
 
+  const refreshTunnelStatus = async () => {
+    try {
+      const res = await apiFetch('/api/tunnel/status');
+      if (res.ok) setTunnel(await res.json());
+    } catch { /* desktop offline */ }
+  };
+
+  const handleStartTunnel = async () => {
+    setIsTunnelLoading(true);
+    try {
+      const res = await apiFetch('/api/tunnel/start', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.public_url) {
+        setTunnel({ running: true, public_url: data.public_url, expires_at: data.expires_at, access_token: data.access_token });
+        pushToast('success', 'Akses Remote Aktif', 'Scan QR Code di bawah dengan HP untuk membuka dashboard remote.');
+      } else {
+        pushToast('error', 'Gagal Mengaktifkan Remote', data.error || 'Pastikan komputer terhubung ke internet.');
+      }
+    } catch {
+      pushToast('error', 'Koneksi Gagal', 'Tidak dapat menghubungi mesin bel lokal.');
+    } finally {
+      setIsTunnelLoading(false);
+    }
+  };
+
+  const handleStopTunnel = async () => {
+    setIsTunnelLoading(true);
+    try {
+      const res = await apiFetch('/api/tunnel/stop', { method: 'POST' });
+      if (res.ok) {
+        setTunnel({ running: false, public_url: null, expires_at: null, access_token: null });
+        setTunnelQrDataUrl(null);
+        pushToast('info', 'Akses Remote Dimatikan', 'Semua sesi HP yang terhubung sudah hangus dan harus pairing ulang.');
+      }
+    } catch {
+      pushToast('error', 'Koneksi Gagal', 'Tidak dapat menghubungi mesin bel lokal.');
+    } finally {
+      setIsTunnelLoading(false);
+    }
+  };
+
+  // Generate QR Code setiap kali tunnel aktif (web Vercel + target + token)
+  useEffect(() => {
+    const VERCEL_DASH = 'https://bel-sekolah.vercel.app/';
+    if (tunnel?.running && tunnel.public_url && tunnel.access_token) {
+      import('qrcode').then(QR => {
+        QR.default.toDataURL(`${VERCEL_DASH}?target=${encodeURIComponent(tunnel.public_url!)}&key=${tunnel.access_token}`, {
+          width: 220,
+          margin: 1,
+          color: { dark: '#0E100D', light: '#F4F6F0' },
+        })
+          .then(setTunnelQrDataUrl)
+          .catch(() => setTunnelQrDataUrl(null));
+      }).catch(() => setTunnelQrDataUrl(null));
+    } else if (!tunnel?.running) {
+      setTunnelQrDataUrl(null);
+    }
+  }, [tunnel]);
+
   useEffect(() => {
     refreshPairingStatus();
+    refreshTunnelStatus();
     const t = setInterval(refreshPairingStatus, 30000);
     return () => clearInterval(t);
   }, []);
@@ -584,7 +674,7 @@ export default function App() {
   const handleSavePairing = async (enabled: boolean) => {
     setIsSavingPairing(true);
     try {
-      const res = await fetch(api('/api/pairing/config'), {
+      const res = await apiFetch('/api/pairing/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ central_server_url: pairingUrl, pairing_code: pairingCode, enabled }),
@@ -687,7 +777,7 @@ export default function App() {
 
   const fetchStatus = useCallback(async () => {
     try {
-      const res = await fetch(api('/api/status'));
+      const res = await apiFetch('/api/status');
       if (res.ok) {
         const data: SystemStatus = await res.json();
         setStatus(data);
@@ -703,11 +793,11 @@ export default function App() {
   const fetchFullData = useCallback(async () => {
     try {
       const [resProfiles, resSchedules, resSb, resLogs, resAudios] = await Promise.all([
-        fetch(api('/api/profiles')),
-        fetch(api('/api/schedules')),
-        fetch(api('/api/soundboard')),
-        fetch(api('/api/logs')),
-        fetch(api('/api/audios')),
+        apiFetch('/api/profiles'),
+        apiFetch('/api/schedules'),
+        apiFetch('/api/soundboard'),
+        apiFetch('/api/logs'),
+        apiFetch('/api/audios'),
       ]);
 
       if (resProfiles.ok) {
@@ -735,24 +825,24 @@ export default function App() {
   }, [fetchStatus, fetchFullData]);
 
   const refreshSchedules = async () => {
-    const res = await fetch(api('/api/schedules'));
+    const res = await apiFetch('/api/schedules');
     if (res.ok) setSchedules(await res.json());
   };
 
   const refreshSoundboard = async () => {
-    const res = await fetch(api('/api/soundboard'));
+    const res = await apiFetch('/api/soundboard');
     if (res.ok) setSoundboard(await res.json());
   };
 
   const refreshAudios = async () => {
-    const res = await fetch(api('/api/audios'));
+    const res = await apiFetch('/api/audios');
     if (res.ok) setAudios(await res.json());
   };
 
   const handleActivateProfile = async (profileId: number, profileName?: string) => {
     setIsActivatingProfile(true);
     try {
-      const res = await fetch(api(`/api/profiles/${profileId}/activate`), { method: 'POST' });
+      const res = await apiFetch(`/api/profiles/${profileId}/activate`, { method: 'POST' });
       if (res.ok) {
         await Promise.all([fetchStatus(), fetchFullData()]);
         pushToast(
@@ -773,14 +863,14 @@ export default function App() {
 
   const handleTriggerBell = async (audioId: number, labelTitle: string, filename: string) => {
     try {
-      const res = await fetch(api(`/api/trigger-bell/${audioId}`), { method: 'POST' });
+      const res = await apiFetch(`/api/trigger-bell/${audioId}`, { method: 'POST' });
       if (res.ok) {
         const data = await res.json();
         if (data.muted) {
           pushToast('warning', 'Mode Senyap Aktif', `"${labelTitle}" dicatat ke riwayat tanpa membunyikan speaker.`);
         } else {
           if (audioPlayerRef.current) {
-            audioPlayerRef.current.src = `/audio/${filename}`;
+            audioPlayerRef.current.src = `${API_BASE}/audio/${filename}`;
             audioPlayerRef.current.volume = (status?.settings.master_volume || 90) / 100;
             audioPlayerRef.current.play().catch(() => {
               pushToast('warning', 'Izin Audio Browser', 'Browser memblokir autoplay audio. Pastikan tab tidak di-mute.');
@@ -790,7 +880,7 @@ export default function App() {
           pushToast('info', 'Audio Diputar', `Memutar "${data.title}" ke pengeras suara.`);
         }
         fetchStatus();
-        fetch(api('/api/logs')).then(r => r.json()).then(setLogs).catch(() => {});
+        apiFetch('/api/logs').then(r => r.json()).then(setLogs).catch(() => {});
       } else {
         pushToast('error', 'Gagal Memutar Audio', 'File suara tidak ditemukan di server.');
       }
@@ -801,7 +891,7 @@ export default function App() {
 
   const handleToggleSchedule = async (item: ScheduleItem) => {
     try {
-      const res = await fetch(api(`/api/schedules/${item.id}/toggle`), { method: 'POST' });
+      const res = await apiFetch(`/api/schedules/${item.id}/toggle`, { method: 'POST' });
       if (res.ok) {
         await refreshSchedules();
         fetchStatus();
@@ -822,7 +912,7 @@ export default function App() {
       confirmLabel: 'Ya, Hapus Jadwal',
       variant: 'danger',
       onConfirm: async () => {
-        const res = await fetch(api(`/api/schedules/${item.id}`), { method: 'DELETE' });
+        const res = await apiFetch(`/api/schedules/${item.id}`, { method: 'DELETE' });
         if (res.ok) {
           await Promise.all([refreshSchedules(), fetchFullData()]);
           fetchStatus();
@@ -838,7 +928,7 @@ export default function App() {
     if (!status) return;
     const newMute = !status.settings.mute_mode;
     try {
-      const res = await fetch(api('/api/settings'), {
+      const res = await apiFetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mute_mode: newMute }),
@@ -864,7 +954,7 @@ export default function App() {
     }
     setIsSavingSchoolName(true);
     try {
-      const res = await fetch(api('/api/settings'), {
+      const res = await apiFetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ school_name: schoolNameInput.trim() }),
@@ -892,7 +982,7 @@ export default function App() {
     const formData = new FormData();
     formData.append('logo', logoFile);
     try {
-      const res = await fetch(api('/api/settings/logo'), {
+      const res = await apiFetch('/api/settings/logo', {
         method: 'POST',
         body: formData,
       });
@@ -918,7 +1008,7 @@ export default function App() {
       confirmLabel: 'Reset Logo',
       variant: 'primary',
       onConfirm: async () => {
-        const res = await fetch(api('/api/settings/logo'), { method: 'DELETE' });
+        const res = await apiFetch('/api/settings/logo', { method: 'DELETE' });
         if (res.ok) {
           await fetchStatus();
           pushToast('success', 'Logo Direset', 'Logo sekolah dikembalikan ke default.');
@@ -931,7 +1021,7 @@ export default function App() {
 
   const handleSaveSettings = async (payload: Record<string, unknown>, feedbackMessage?: string) => {
     try {
-      const res = await fetch(api('/api/settings'), {
+      const res = await apiFetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -962,7 +1052,7 @@ export default function App() {
 
     setIsSavingSchedule(true);
     try {
-      const res = await fetch(api('/api/schedules'), {
+      const res = await apiFetch('/api/schedules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1001,7 +1091,7 @@ export default function App() {
 
     setIsSavingButton(true);
     try {
-      const res = await fetch(api('/api/soundboard'), {
+      const res = await apiFetch('/api/soundboard', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1035,7 +1125,7 @@ export default function App() {
       confirmLabel: 'Hapus Tombol',
       variant: 'danger',
       onConfirm: async () => {
-        const res = await fetch(api(`/api/soundboard/${btn.id}`), { method: 'DELETE' });
+        const res = await apiFetch(`/api/soundboard/${btn.id}`, { method: 'DELETE' });
         if (res.ok) {
           await refreshSoundboard();
           pushToast('success', 'Tombol Dihapus', `Tombol "${btn.label}" berhasil dihapus.`);
@@ -1060,7 +1150,7 @@ export default function App() {
     formData.append('file', uploadFile);
 
     try {
-      const res = await fetch(api('/api/audios/upload'), {
+      const res = await apiFetch('/api/audios/upload', {
         method: 'POST',
         body: formData,
       });
@@ -1090,7 +1180,7 @@ export default function App() {
       confirmLabel: 'Ya, Hapus Permanen',
       variant: 'danger',
       onConfirm: async () => {
-        const res = await fetch(api(`/api/audios/${audio.id}`), { method: 'DELETE' });
+        const res = await apiFetch(`/api/audios/${audio.id}`, { method: 'DELETE' });
         if (res.ok) {
           await Promise.all([refreshAudios(), refreshSoundboard(), refreshSchedules()]);
           pushToast('success', 'Audio Dihapus', `"${audio.title}" telah dihapus dari server.`);
@@ -2385,6 +2475,68 @@ export default function App() {
                     {isSavingPairing ? 'Menyimpan...' : 'Simpan Pairing'}
                   </button>
                 </div>
+              </div>
+
+              {/* AKSES REMOTE (QR Code via Cloudflare Quick Tunnel) */}
+              <div className="bg-[#141712] border border-[#22281E] p-5 rounded-2xl space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-[#A9B2A3] uppercase tracking-wider">
+                      Akses Remote dari HP / Laptop Lain
+                    </label>
+                    <p className="text-[11px] text-[#9CA695] mt-1">
+                      Nyalakan untuk membuat QR Code. Scan dari HP untuk mengendalikan bel tanpa menyentuh server mana pun — koneksi langsung ke komputer ini, terenkripsi HTTPS.
+                    </p>
+                  </div>
+                  <span
+                    className={`shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold border ${
+                      tunnel?.running
+                        ? 'bg-[#D4FA3C]/10 text-[#D4FA3C] border-[#D4FA3C]/40'
+                        : 'bg-[#20251D] text-[#9CA695] border-[#2D3627]'
+                    }`}
+                  >
+                    {tunnel?.running ? 'AKTIF' : 'MATI'}
+                  </span>
+                </div>
+
+                {tunnel?.running && tunnel.public_url ? (
+                  <div className="flex flex-col sm:flex-row items-center gap-5">
+                    <div className="bg-[#F4F6F0] p-2.5 rounded-2xl shrink-0">
+                      {tunnelQrDataUrl ? (
+                        <img src={tunnelQrDataUrl} alt="QR Code Akses Remote" className="w-[200px] h-[200px]" />
+                      ) : (
+                        <div className="w-[200px] h-[200px] rounded skeleton-shimmer" />
+                      )}
+                    </div>
+                    <div className="space-y-3 min-w-0 flex-1">
+                      <div className="text-xs text-[#9CA695]">
+                        Berlaku sampai:
+                        <strong className="text-[#F4F6F0] font-mono ml-1.5">{tunnel.expires_at || '-'}</strong>
+                        <span className="block mt-0.5 text-[10px]">Setelah itu sesi HP hangus otomatis dan harus scan ulang.</span>
+                      </div>
+                      <code className="block truncate text-[10px] font-mono text-[#D4FA3C] bg-[#0E100D] border border-[#272E22] rounded-lg px-2.5 py-2">
+                        {tunnel.public_url}
+                      </code>
+                      <button
+                        type="button"
+                        disabled={isTunnelLoading}
+                        onClick={handleStopTunnel}
+                        className="w-full sm:w-auto px-4 py-2.5 min-h-[44px] bg-[#3A201C] hover:bg-[#4A2A24] text-[#F87171] border border-[#5A2E28] font-bold text-xs rounded-xl transition-colors disabled:opacity-50"
+                      >
+                        Matikan Remote (Putus Semua Sesi)
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isTunnelLoading}
+                    onClick={handleStartTunnel}
+                    className="w-full px-4 py-3 min-h-[44px] bg-[#D4FA3C] hover:bg-[#C2E834] text-[#0E100D] font-bold text-sm rounded-xl transition-colors disabled:opacity-50"
+                  >
+                    {isTunnelLoading ? 'Menyalakan Akses Remote...' : 'Aktifkan Akses Remote'}
+                  </button>
+                )}
               </div>
             </div>
           </div>

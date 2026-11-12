@@ -260,6 +260,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/trigger-bell/:audio_id", post(trigger_manual_bell))
         .route("/api/pairing/status", get(get_pairing_status))
         .route("/api/pairing/config", post(set_pairing_config))
+        .route("/api/tunnel/status", get(get_tunnel_status))
+        .route("/api/tunnel/start", post(start_tunnel))
+        .route("/api/tunnel/stop", post(stop_tunnel))
         .nest_service("/audio", ServeDir::new(&audio_dir))
         .nest_service("/branding", ServeDir::new(&branding_dir))
         .fallback_service(ServeDir::new(&frontend_dist).not_found_service(ServeFile::new(&index_html)))
@@ -1160,6 +1163,248 @@ async fn trigger_manual_bell(
         muted: settings.mute_mode,
     })
     .into_response()
+}
+
+// ===================== Remote Tunnel (Cloudflare Quick Tunnel) =====================
+
+#[derive(Serialize, Deserialize, FromRow, Debug, Clone)]
+struct TunnelRow {
+    id: i32,
+    public_url: String,
+    access_token: String,
+    started_at: String,
+    expires_at: String,
+}
+
+struct TunnelRuntime {
+    child: tokio::process::Child,
+    public_url: String,
+    access_token: String,
+    expires_at: String,
+}
+
+static TUNNEL_RUNTIME: std::sync::Mutex<Option<TunnelRuntime>> = std::sync::Mutex::new(None);
+
+const TUNNEL_LIFETIME_HOURS: i64 = 12;
+
+fn generate_access_token() -> String {
+    use rand::Rng;
+    const CHARSET: &[u8] = b"ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let mut rng = rand::thread_rng();
+    (0..8)
+        .map(|_| CHARSET[rng.gen_range(0..CHARSET.len())] as char)
+        .collect()
+}
+
+async fn ensure_tunnel_table(pool: &DbPool) {
+    let _ = sqlx::query(
+        "CREATE TABLE IF NOT EXISTS remote_tunnel (\
+         id INTEGER PRIMARY KEY CHECK (id = 1),\
+         public_url TEXT NOT NULL DEFAULT '',\
+         access_token TEXT NOT NULL DEFAULT '',\
+         started_at TEXT NOT NULL DEFAULT (datetime('now')),\
+         expires_at TEXT NOT NULL DEFAULT '')",
+    )
+    .execute(pool)
+    .await;
+}
+
+async fn load_tunnel_row(pool: &DbPool) -> Option<TunnelRow> {
+    ensure_tunnel_table(pool).await;
+    sqlx::query_as::<_, TunnelRow>(
+        "SELECT id, public_url, access_token, started_at, expires_at FROM remote_tunnel WHERE id = 1",
+    )
+    .fetch_one(pool)
+    .await
+    .ok()
+}
+
+#[derive(Serialize)]
+struct TunnelStatusInfo {
+    running: bool,
+    public_url: Option<String>,
+    expires_at: Option<String>,
+    // Token hanya dikirim saat operator di PC meminta status langsung
+    // (bukan via remote) dan tunnel sedang berjalan.
+    access_token: Option<String>,
+}
+
+async fn get_tunnel_status(
+    State(state): State<Arc<AppState>>,
+    headers: axum::http::HeaderMap,
+) -> impl IntoResponse {
+    let runtime = TUNNEL_RUNTIME.lock().unwrap();
+    let from_tunnel = headers
+        .get("x-forwarded-host")
+        .and_then(|v| v.to_str().ok())
+        .map(|h| h.contains("trycloudflare.com"))
+        .unwrap_or(false);
+
+    if let Some(rt) = runtime.as_ref() {
+        // Sesi kadaluarsa? biarkan endpoint tetap menjawab tapi tandai lewat expires_at.
+        Json(TunnelStatusInfo {
+            running: true,
+            public_url: Some(rt.public_url.clone()),
+            expires_at: Some(rt.expires_at.clone()),
+            access_token: if from_tunnel { None } else { Some(rt.access_token.clone()) },
+        })
+    } else {
+        let _ = &state;
+        Json(TunnelStatusInfo {
+            running: false,
+            public_url: None,
+            expires_at: None,
+            access_token: None,
+        })
+    }
+}
+
+async fn start_tunnel(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    // Cegah double-start
+    {
+        let runtime = TUNNEL_RUNTIME.lock().unwrap();
+        if runtime.is_some() {
+            return (StatusCode::CONFLICT, Json(serde_json::json!({
+                "error": "Tunnel sudah berjalan. Matikan dulu sebelum menyalakan ulang."
+            })));
+        }
+    }
+
+    ensure_tunnel_table(&state.db).await;
+
+    // Binary cloudflared harus ada di samping backend / resource dir.
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| std::path::PathBuf::from("."));
+    let candidates = [
+        exe_dir.join("cloudflared.exe"),
+        exe_dir.join("cloudflared"),
+        exe_dir.join("sidecar/cloudflared.exe"),
+        exe_dir.join("sidecar/cloudflared"),
+        std::path::PathBuf::from("cloudflared"),
+    ];
+    let cloudflared = candidates.iter().find(|p| p.exists()).cloned();
+
+    let cloudflared = match cloudflared {
+        Some(p) => p,
+        None => {
+            return (StatusCode::NOT_FOUND, Json(serde_json::json!({
+                "error": "cloudflared tidak ditemukan. Pastikan aplikasi terinstall lengkap."
+            })));
+        }
+    };
+
+    let token = generate_access_token();
+    let mut cmd = tokio::process::Command::new(&cloudflared);
+    cmd.args([
+        "tunnel", "--url", "http://127.0.0.1:8080", "--no-autoupdate",
+    ]);
+    cmd.stdout(std::process::Stdio::piped());
+    cmd.stderr(std::process::Stdio::piped());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+    }
+
+    match cmd.spawn() {
+        Ok(mut child) => {
+            // Ambil stderr untuk mencari URL trycloudflare.com yang di-print cloudflared.
+            let stderr = child.stderr.take();
+            let mut public_url = String::new();
+            if let Some(stderr) = stderr {
+                use tokio::io::AsyncBufReadExt;
+                let mut reader = tokio::io::BufReader::new(stderr);
+                let mut line = String::new();
+                let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+                while tokio::time::Instant::now() < deadline {
+                    match tokio::time::timeout(Duration::from_secs(2), reader.read_line(&mut line)).await {
+                        Ok(Ok(0)) | Err(_) => break,
+                        Ok(Ok(_)) => {
+                            if let Some(idx) = line.find("https://") {
+                                let candidate = line[idx..].trim().trim_end().to_string();
+                                if candidate.contains("trycloudflare.com") {
+                                    public_url = candidate
+                                        .split_whitespace()
+                                        .find(|w| w.starts_with("https://"))
+                                        .unwrap_or("")
+                                        .trim_end_matches(|c: char| c == ',' || c == '.')
+                                        .to_string();
+                                    break;
+                                }
+                            }
+                            line.clear();
+                        }
+                        Ok(Err(_)) => break,
+                    }
+                }
+            }
+
+            if public_url.is_empty() {
+                let _ = child.kill().await;
+                return (StatusCode::BAD_GATEWAY, Json(serde_json::json!({
+                    "error": "Gagal mendapatkan URL tunnel dari cloudflared. Periksa koneksi internet."
+                })));
+            }
+
+            let started = chrono::Utc::now();
+            let expires = started + chrono::Duration::hours(TUNNEL_LIFETIME_HOURS);
+            let started_str = started.format("%Y-%m-%d %H:%M:%S").to_string();
+            let expires_str = expires.format("%Y-%m-%d %H:%M:%S").to_string();
+
+            let _ = sqlx::query(
+                "INSERT INTO remote_tunnel (id, public_url, access_token, started_at, expires_at) \
+                 VALUES (1, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET \
+                 public_url = excluded.public_url, access_token = excluded.access_token, \
+                 started_at = excluded.started_at, expires_at = excluded.expires_at",
+            )
+            .bind(&public_url)
+            .bind(&token)
+            .bind(&started_str)
+            .bind(&expires_str)
+            .execute(&state.db)
+            .await;
+
+            *TUNNEL_RUNTIME.lock().unwrap() = Some(TunnelRuntime {
+                child,
+                public_url: public_url.clone(),
+                access_token: token.clone(),
+                expires_at: expires_str.clone(),
+            });
+
+            info!("Remote tunnel aktif: {} (expires {})", public_url, expires_str);
+            (StatusCode::OK, Json(serde_json::json!({
+                "public_url": public_url,
+                "access_token": token,
+                "expires_at": expires_str,
+            })))
+        }
+        Err(e) => {
+            error!("Gagal spawn cloudflared: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
+                "error": format!("Gagal menjalankan cloudflared: {}", e)
+            })))
+        }
+    }
+}
+
+async fn stop_tunnel(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    // Ambil runtime keluar dari mutex tanpa memegang guard across await
+    // (std::sync::MutexGuard tidak Send, membuat future gagal implement Handler).
+    let taken = {
+        let mut runtime = TUNNEL_RUNTIME.lock().unwrap();
+        runtime.take()
+    };
+    if let Some(mut rt) = taken {
+        let _ = rt.child.kill().await;
+    }
+    ensure_tunnel_table(&state.db).await;
+    let _ = sqlx::query("DELETE FROM remote_tunnel WHERE id = 1")
+        .execute(&state.db)
+        .await;
+    (StatusCode::OK, Json(serde_json::json!({ "stopped": true })))
 }
 
 // ===================== Pairing ke Server Pusat =====================
