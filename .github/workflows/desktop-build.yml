@@ -33,7 +33,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path desktop/app/sidecar | Out-Null
-          Copy-Item desktop/backend/target/release/bel-sekolah-backend.exe desktop/app/sidecar/
+          Copy-Item desktop/backend/target/release/bel-sekolah-desktop-backend.exe desktop/app/sidecar/
           Copy-Item desktop/backend/migrations/0001_init.sql desktop/app/sidecar/
 
       - name: Build Tauri app (MSI)
