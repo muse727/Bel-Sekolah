@@ -167,38 +167,38 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#0E100D] text-[#F4F6F0] font-sans antialiased selection:bg-[#D4FA3C] selection:text-[#0E100D]">
+    <div className="min-h-screen bg-black text-[#EDEDED] font-sans antialiased selection:bg-[#D4FA3C] selection:text-black">
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#0E100D]/90 backdrop-blur-md border-b border-[#22281E]">
+      <header className="sticky top-0 z-40 bg-black/90 backdrop-blur-md border-b border-[#222222]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#171A15] border border-[#272E22] flex items-center justify-center text-[#D4FA3C]">
+            <div className="w-9 h-9 rounded-xl bg-[#141414] border border-[#262626] flex items-center justify-center text-[#D4FA3C]">
               <IconBell className="w-5 h-5" />
             </div>
             <div>
-              <span className="font-bold tracking-tight text-[#F4F6F0] text-sm sm:text-base">Bel Sekolah</span>
-              <span className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#1C201A] text-[#9CA695] border border-[#272E22]">v0.1.4</span>
+              <span className="font-bold tracking-tight text-white text-sm sm:text-base">Bel Sekolah</span>
+              <span className="ml-2 text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#181818] text-[#A1A1AA] border border-[#2A2A2A]">v0.1.4</span>
             </div>
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-xs text-[#9CA695]">
-            <a href="#fitur" className="hover:text-[#F4F6F0] transition-colors">Fitur Sistem</a>
-            <a href="#arsitektur" className="hover:text-[#F4F6F0] transition-colors">Arsitektur & Kinerja</a>
-            <a href="#download" className="hover:text-[#F4F6F0] transition-colors">Unduh Windows</a>
-            <a href="#faq" className="hover:text-[#F4F6F0] transition-colors">Tanya Jawab</a>
+          <nav className="hidden md:flex items-center gap-6 text-xs text-[#A1A1AA]">
+            <a href="#fitur" className="hover:text-white transition-colors">Fitur Sistem</a>
+            <a href="#arsitektur" className="hover:text-white transition-colors">Arsitektur & Kinerja</a>
+            <a href="#download" className="hover:text-white transition-colors">Unduh Windows</a>
+            <a href="#faq" className="hover:text-white transition-colors">Tanya Jawab</a>
           </nav>
 
           <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onOpenApp}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#272E22] bg-[#171A15] text-[#F4F6F0] hover:bg-[#20251D] hover:border-[#384232] transition-colors"
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[#2A2A2A] bg-[#141414] text-white hover:bg-[#1E1E1E] hover:border-[#383838] transition-colors"
             >
               Buka Web Control
             </button>
             <a
               href="#download"
-              className="text-xs font-bold px-3.5 py-1.5 rounded-lg bg-[#D4FA3C] text-[#0E100D] hover:bg-[#c2e82f] transition-colors"
+              className="text-xs font-bold px-3.5 py-1.5 rounded-lg bg-[#D4FA3C] text-black hover:bg-[#C2E82F] transition-colors"
             >
               Unduh Installer
             </a>
@@ -208,26 +208,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
 
       {/* Hero Section */}
       <section className="pt-16 pb-14 px-4 sm:px-6 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#171A15] border border-[#272E22] text-[#9CA695] text-xs font-medium mb-6">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#121212] border border-[#262626] text-[#A1A1AA] text-xs font-medium mb-6">
           <span className="w-2 h-2 rounded-full bg-[#D4FA3C]" />
           <span>Sistem Bel Otomatis Sekolah & Pesantren</span>
-          <span className="text-[#3A4234]">•</span>
-          <span className="text-[#F4F6F0] font-medium">Desktop Native & Web Remote</span>
+          <span className="text-[#3F3F46]">•</span>
+          <span className="text-white font-medium">Desktop Native & Web Remote</span>
         </div>
 
-        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-[#F4F6F0] leading-[1.15] mb-5">
+        <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-[1.15] mb-5">
           Otomasi bel sekolah terjadwal.<br />
-          <span className="text-[#9CA695]">Tepat waktu, stabil, dan berjalan offline.</span>
+          <span className="text-[#A1A1AA]">Tepat waktu, stabil, dan berjalan offline.</span>
         </h1>
 
-        <p className="text-[#9CA695] text-sm sm:text-base max-w-2xl mx-auto mb-8 leading-relaxed">
+        <p className="text-[#A1A1AA] text-sm sm:text-base max-w-2xl mx-auto mb-8 leading-relaxed">
           Dirancang untuk komputer audio sekolah. Mengatur jam masuk, istirahat, dan kepulangan otomatis berdasarkan profil hari, dengan cadangan kontrol cepat lewat soundboard.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 mb-12">
           <a
             href="#download"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#D4FA3C] text-[#0E100D] font-bold text-sm hover:bg-[#c2e82f] transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#D4FA3C] text-black font-bold text-sm hover:bg-[#C2E82F] transition-colors"
           >
             <IconWindows className="w-4 h-4" />
             <span>Unduh untuk Windows (.MSI)</span>
@@ -235,23 +235,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
           <button
             type="button"
             onClick={onOpenApp}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#171A15] border border-[#272E22] text-[#F4F6F0] font-semibold text-sm hover:bg-[#20251D] hover:border-[#384232] transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-[#141414] border border-[#262626] text-white font-semibold text-sm hover:bg-[#1E1E1E] hover:border-[#383838] transition-colors"
           >
             <span>Buka Dashboard Remote</span>
-            <IconArrowRight className="w-4 h-4 text-[#9CA695]" />
+            <IconArrowRight className="w-4 h-4 text-[#A1A1AA]" />
           </button>
         </div>
 
         {/* System Mockup Window */}
-        <div className="max-w-4xl mx-auto rounded-2xl border border-[#272E22] bg-[#141712] overflow-hidden text-left shadow-xl">
-          <div className="px-4 py-2.5 bg-[#171A15] border-b border-[#22281E] flex items-center justify-between">
-            <div className="flex items-center gap-2 text-xs font-mono text-[#9CA695]">
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#272E22]" />
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#272E22]" />
-              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#272E22]" />
-              <span className="ml-2 text-[11px] text-[#A9B2A3]">Bel Sekolah Desktop &mdash; Sistem Bel Otomatis</span>
+        <div className="max-w-4xl mx-auto rounded-2xl border border-[#262626] bg-[#0E0E0E] overflow-hidden text-left shadow-2xl">
+          <div className="px-4 py-2.5 bg-[#141414] border-b border-[#222222] flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-mono text-[#A1A1AA]">
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#2A2A2A]" />
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#2A2A2A]" />
+              <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#2A2A2A]" />
+              <span className="ml-2 text-[11px] text-[#D4D4D8]">Bel Sekolah Desktop &mdash; Sistem Bel Otomatis</span>
             </div>
-            <div className="flex items-center gap-2 text-[11px] text-[#9CA695]">
+            <div className="flex items-center gap-2 text-[11px] text-[#A1A1AA]">
               <span className="w-2 h-2 rounded-full bg-[#D4FA3C]" />
               <span>Daemon Siap</span>
             </div>
@@ -270,13 +270,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
       </section>
 
       {/* Feature Grid */}
-      <section id="fitur" className="py-16 px-4 sm:px-6 max-w-5xl mx-auto border-t border-[#22281E]">
+      <section id="fitur" className="py-16 px-4 sm:px-6 max-w-5xl mx-auto border-t border-[#222222]">
         <div className="mb-10 text-center sm:text-left">
           <p className="text-[#D4FA3C] text-xs font-bold uppercase tracking-wider mb-1">Fitur Utama</p>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#F4F6F0]">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
             Kebutuhan operasional sekolah dalam satu sistem
           </h2>
-          <p className="text-[#9CA695] text-xs sm:text-sm mt-1">
+          <p className="text-[#A1A1AA] text-xs sm:text-sm mt-1">
             Dikelola dengan tata letak ringkas yang memudahkan petugas piket maupun operator sekolah.
           </p>
         </div>
@@ -285,20 +285,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
           {features.map((item, idx) => (
             <div
               key={idx}
-              className="p-5 rounded-2xl bg-[#141712] border border-[#22281E] hover:border-[#384232] transition-colors"
+              className="p-5 rounded-2xl bg-[#0E0E0E] border border-[#222222] hover:border-[#383838] transition-colors"
             >
               <div className="flex items-start gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-[#171A15] border border-[#272E22] flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-[#161616] border border-[#262626] flex items-center justify-center shrink-0">
                   {item.icon}
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#9CA695] mb-0.5 block">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#A1A1AA] mb-0.5 block">
                     {item.tag}
                   </span>
-                  <h3 className="text-sm font-bold text-[#F4F6F0] mb-1">
+                  <h3 className="text-sm font-bold text-white mb-1">
                     {item.title}
                   </h3>
-                  <p className="text-[#9CA695] text-xs leading-relaxed">
+                  <p className="text-[#A1A1AA] text-xs leading-relaxed">
                     {item.desc}
                   </p>
                 </div>
@@ -309,45 +309,45 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
       </section>
 
       {/* Architecture & Performance Metrics */}
-      <section id="arsitektur" className="py-16 px-4 sm:px-6 border-t border-[#22281E] bg-[#11140F]">
+      <section id="arsitektur" className="py-16 px-4 sm:px-6 border-t border-[#222222] bg-[#070707]">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-[#D4FA3C] text-xs font-bold uppercase tracking-wider mb-1">Arsitektur Ringan</p>
-            <h2 className="text-2xl sm:text-3xl font-extrabold text-[#F4F6F0]">
+            <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
               Stabilitas tinggi untuk pemakaian nonstop
             </h2>
-            <p className="text-[#9CA695] text-xs sm:text-sm max-w-xl mx-auto mt-1">
+            <p className="text-[#A1A1AA] text-xs sm:text-sm max-w-xl mx-auto mt-1">
               Dibangun dengan Rust murni dan Tauri untuk memastikan beban kerja komputer audio sekolah tetap minim.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 text-left">
-            <div className="p-5 rounded-2xl bg-[#141712] border border-[#22281E]">
-              <div className="text-3xl font-black text-[#F4F6F0] font-mono mb-1">
+            <div className="p-5 rounded-2xl bg-[#0E0E0E] border border-[#222222]">
+              <div className="text-3xl font-black text-white font-mono mb-1">
                 &lt; 35 <span className="text-xs font-sans text-[#D4FA3C] font-semibold">MB</span>
               </div>
-              <p className="text-xs font-bold text-[#F4F6F0] uppercase tracking-wider mb-1">Konsumsi RAM Standby</p>
-              <p className="text-[11px] text-[#9CA695] leading-relaxed">
+              <p className="text-xs font-bold text-white uppercase tracking-wider mb-1">Konsumsi RAM Standby</p>
+              <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                 Jauh lebih hemat sumber daya dibanding aplikasi desktop berbasis web engine konvensional.
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-[#141712] border border-[#22281E]">
-              <div className="text-3xl font-black text-[#F4F6F0] font-mono mb-1">
+            <div className="p-5 rounded-2xl bg-[#0E0E0E] border border-[#222222]">
+              <div className="text-3xl font-black text-white font-mono mb-1">
                 ~0 <span className="text-xs font-sans text-[#D4FA3C] font-semibold">%</span>
               </div>
-              <p className="text-xs font-bold text-[#F4F6F0] uppercase tracking-wider mb-1">Penggunaan CPU Idle</p>
-              <p className="text-[11px] text-[#9CA695] leading-relaxed">
+              <p className="text-xs font-bold text-white uppercase tracking-wider mb-1">Penggunaan CPU Idle</p>
+              <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                 Komputer operasional atau mini PC tetap bekerja dingin tanpa mengganggu pekerjaan lain.
               </p>
             </div>
 
-            <div className="p-5 rounded-2xl bg-[#141712] border border-[#22281E]">
-              <div className="text-3xl font-black text-[#F4F6F0] font-mono mb-1">
+            <div className="p-5 rounded-2xl bg-[#0E0E0E] border border-[#222222]">
+              <div className="text-3xl font-black text-white font-mono mb-1">
                 &lt; 15 <span className="text-xs font-sans text-[#D4FA3C] font-semibold">MB</span>
               </div>
-              <p className="text-xs font-bold text-[#F4F6F0] uppercase tracking-wider mb-1">Ukuran Installer</p>
-              <p className="text-[11px] text-[#9CA695] leading-relaxed">
+              <p className="text-xs font-bold text-white uppercase tracking-wider mb-1">Ukuran Installer</p>
+              <p className="text-[11px] text-[#A1A1AA] leading-relaxed">
                 Paket instalasi terkompresi ringkas, cepat diunduh, dan tidak memerlukan runtime runtime tambahan.
               </p>
             </div>
@@ -356,16 +356,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
       </section>
 
       {/* Download Section */}
-      <section id="download" className="py-16 px-4 sm:px-6 max-w-4xl mx-auto border-t border-[#22281E]">
-        <div className="rounded-2xl p-6 sm:p-10 border border-[#272E22] bg-[#141712] text-center">
-          <div className="w-12 h-12 rounded-xl bg-[#171A15] border border-[#272E22] flex items-center justify-center mx-auto mb-4 text-[#D4FA3C]">
+      <section id="download" className="py-16 px-4 sm:px-6 max-w-4xl mx-auto border-t border-[#222222]">
+        <div className="rounded-2xl p-6 sm:p-10 border border-[#262626] bg-[#0E0E0E] text-center">
+          <div className="w-12 h-12 rounded-xl bg-[#161616] border border-[#262626] flex items-center justify-center mx-auto mb-4 text-[#D4FA3C]">
             <IconWindows className="w-6 h-6" />
           </div>
 
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#F4F6F0] mb-2">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white mb-2">
             Pemasangan di Komputer Windows
           </h2>
-          <p className="text-[#9CA695] text-xs sm:text-sm max-w-md mx-auto mb-6 leading-relaxed">
+          <p className="text-[#A1A1AA] text-xs sm:text-sm max-w-md mx-auto mb-6 leading-relaxed">
             Mendukung Windows 10 dan 11 (arsitektur 64-bit). File setup langsung mendaftarkan service dan database lokal.
           </p>
 
@@ -374,7 +374,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
               href="https://github.com/muse727/Bel-Sekolah/releases"
               target="_blank"
               rel="noreferrer"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#D4FA3C] text-[#0E100D] font-bold text-sm hover:bg-[#c2e82f] transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-6 py-3.5 rounded-xl bg-[#D4FA3C] text-black font-bold text-sm hover:bg-[#C2E82F] transition-colors"
             >
               <IconWindows className="w-4 h-4" />
               <span>Unduh Installer Resmi (.MSI)</span>
@@ -383,24 +383,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
             <button
               type="button"
               onClick={onOpenApp}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[#171A15] border border-[#272E22] text-[#F4F6F0] font-semibold text-sm hover:bg-[#20251D] hover:border-[#384232] transition-colors"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[#141414] border border-[#262626] text-white font-semibold text-sm hover:bg-[#1E1E1E] hover:border-[#383838] transition-colors"
             >
               <span>Akses Web Dashboard</span>
-              <IconArrowRight className="w-4 h-4 text-[#9CA695]" />
+              <IconArrowRight className="w-4 h-4 text-[#A1A1AA]" />
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-6 border-t border-[#22281E] text-xs text-[#9CA695]">
-            <div className="p-3 rounded-xl bg-[#171A15]/60 border border-[#22281E]">
-              <span className="text-[#F4F6F0] font-bold block mb-1">1. Unduh Berkas .MSI</span>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-left pt-6 border-t border-[#222222] text-xs text-[#A1A1AA]">
+            <div className="p-3 rounded-xl bg-[#141414] border border-[#222222]">
+              <span className="text-white font-bold block mb-1">1. Unduh Berkas .MSI</span>
               <p>Ambil installer versi rilis terbaru dari repositori GitHub resmi.</p>
             </div>
-            <div className="p-3 rounded-xl bg-[#171A15]/60 border border-[#22281E]">
-              <span className="text-[#F4F6F0] font-bold block mb-1">2. Jalankan Instalasi</span>
+            <div className="p-3 rounded-xl bg-[#141414] border border-[#222222]">
+              <span className="text-white font-bold block mb-1">2. Jalankan Instalasi</span>
               <p>Buka berkas instalasi dan ikuti panduan setup sampai selesai.</p>
             </div>
-            <div className="p-3 rounded-xl bg-[#171A15]/60 border border-[#22281E]">
-              <span className="text-[#F4F6F0] font-bold block mb-1">3. Atur Jadwal Bel</span>
+            <div className="p-3 rounded-xl bg-[#141414] border border-[#222222]">
+              <span className="text-white font-bold block mb-1">3. Atur Jadwal Bel</span>
               <p>Buka aplikasi, sesuaikan jam jadwal per hari, dan aktifkan profil yang berlaku.</p>
             </div>
           </div>
@@ -408,10 +408,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="py-16 px-4 sm:px-6 max-w-3xl mx-auto border-t border-[#22281E]">
+      <section id="faq" className="py-16 px-4 sm:px-6 max-w-3xl mx-auto border-t border-[#222222]">
         <div className="text-center mb-8">
           <p className="text-[#D4FA3C] text-xs font-bold uppercase tracking-wider mb-1">Bantuan Informasi</p>
-          <h2 className="text-2xl sm:text-3xl font-extrabold text-[#F4F6F0]">
+          <h2 className="text-2xl sm:text-3xl font-extrabold text-white">
             Pertanyaan yang Sering Diajukan
           </h2>
         </div>
@@ -422,20 +422,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
             return (
               <div
                 key={idx}
-                className="rounded-xl border border-[#22281E] bg-[#141712] overflow-hidden"
+                className="rounded-xl border border-[#222222] bg-[#0E0E0E] overflow-hidden"
               >
                 <button
                   type="button"
                   onClick={() => setActiveFaq(isOpen ? null : idx)}
-                  className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-3 hover:bg-[#171A15] transition-colors"
+                  className="w-full px-4 py-3.5 text-left flex items-center justify-between gap-3 hover:bg-[#141414] transition-colors"
                 >
-                  <span className="font-semibold text-xs sm:text-sm text-[#F4F6F0]">{faq.q}</span>
-                  <span className={`text-[#9CA695] transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}>
+                  <span className="font-semibold text-xs sm:text-sm text-white">{faq.q}</span>
+                  <span className={`text-[#A1A1AA] transition-transform duration-150 ${isOpen ? 'rotate-180' : ''}`}>
                     <IconChevronDown className="w-4 h-4" />
                   </span>
                 </button>
                 {isOpen && (
-                  <div className="px-4 pb-4 text-xs text-[#9CA695] leading-relaxed border-t border-[#22281E] pt-3">
+                  <div className="px-4 pb-4 text-xs text-[#A1A1AA] leading-relaxed border-t border-[#222222] pt-3">
                     {faq.a}
                   </div>
                 )}
@@ -446,22 +446,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
       </section>
 
       {/* Footer */}
-      <footer className="py-8 px-4 sm:px-6 border-t border-[#22281E] text-xs text-[#9CA695]">
+      <footer className="py-8 px-4 sm:px-6 border-t border-[#222222] text-xs text-[#A1A1AA]">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
           <div>
-            <span className="font-semibold text-[#F4F6F0]">Bel Sekolah Otomatis</span>
-            <span className="mx-2 text-[#3A4234]">&bull;</span>
+            <span className="font-semibold text-white">Bel Sekolah Otomatis</span>
+            <span className="mx-2 text-[#3F3F46]">&bull;</span>
             <span>Aplikasi Terbuka &amp; Mandiri</span>
           </div>
 
           <div className="flex items-center gap-5">
-            <a href="https://github.com/muse727/Bel-Sekolah" target="_blank" rel="noreferrer" className="hover:text-[#F4F6F0] transition-colors">
+            <a href="https://github.com/muse727/Bel-Sekolah" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
               GitHub Repositori
             </a>
-            <a href="https://github.com/muse727/Bel-Sekolah/releases" target="_blank" rel="noreferrer" className="hover:text-[#F4F6F0] transition-colors">
+            <a href="https://github.com/muse727/Bel-Sekolah/releases" target="_blank" rel="noreferrer" className="hover:text-white transition-colors">
               Rilis &amp; Unduhan
             </a>
-            <button type="button" onClick={onOpenApp} className="hover:text-[#F4F6F0] transition-colors">
+            <button type="button" onClick={onOpenApp} className="hover:text-white transition-colors">
               Web Control
             </button>
           </div>
