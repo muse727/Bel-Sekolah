@@ -11,7 +11,18 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
-            let sidecar = resource_dir.join(SIDECAR_NAME);
+
+            // Tauri menaruh resources dengan struktur relatif terjaga (sidecar/xxx),
+            // tapi sebagian target menaruhnya datar di resource_dir. Cek keduanya.
+            let candidates = [
+                resource_dir.join("sidecar").join(SIDECAR_NAME),
+                resource_dir.join(SIDECAR_NAME),
+            ];
+            let sidecar = candidates
+                .iter()
+                .find(|p| p.exists())
+                .cloned()
+                .unwrap_or_else(|| candidates[0].clone());
 
             if sidecar.exists() {
                 // Backend sidecar mewarisi cwd aplikasi; DATABASE_URL default
