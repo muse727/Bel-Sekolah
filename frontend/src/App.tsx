@@ -1298,7 +1298,7 @@ export default function App() {
         <header className="space-y-4 border-b border-[#22281E] pb-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl bg-[#D4FA3C] flex items-center justify-center font-black text-xl text-[#0E100D] tracking-tighter shrink-0 overflow-hidden shadow-sm border border-[#272E22]">
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-[#272E22] bg-[#141414]">
                 {status?.settings.school_logo ? (
                   <img
                     src={status.settings.school_logo}
@@ -1306,7 +1306,11 @@ export default function App() {
                     className="w-full h-full object-contain p-1 bg-white"
                   />
                 ) : (
-                  <IconMusic className="w-5 h-5 text-[#0E100D]" />
+                  <img
+                    src="/logo-aplikasi.png"
+                    alt="Logo Bel Sekolah"
+                    className="w-full h-full object-cover"
+                  />
                 )}
               </div>
               <div className="min-w-0">
@@ -2254,15 +2258,19 @@ export default function App() {
                 {/* Upload & Preview Logo Sekolah */}
                 <div className="pt-3 border-t border-[#22281E] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-3.5">
-                    <div className="w-14 h-14 rounded-2xl bg-white border border-[#272E22] flex items-center justify-center p-1.5 shrink-0 overflow-hidden shadow-sm">
+                    <div className="w-14 h-14 rounded-2xl border border-[#272E22] flex items-center justify-center shrink-0 overflow-hidden shadow-sm bg-[#141414]">
                       {status?.settings.school_logo ? (
                         <img
                           src={status.settings.school_logo}
                           alt="Logo Sekolah"
-                          className="w-full h-full object-contain"
+                          className="w-full h-full object-contain p-1 bg-white"
                         />
                       ) : (
-                        <IconMusic className="w-6 h-6 text-[#9CA695]" />
+                        <img
+                          src="/logo-aplikasi.png"
+                          alt="Logo Default Bel Sekolah"
+                          className="w-full h-full object-cover"
+                        />
                       )}
                     </div>
                     <div>
