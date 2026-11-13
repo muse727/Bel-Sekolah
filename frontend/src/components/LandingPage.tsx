@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import GradientASCII from './GradientASCII';
 
 interface LandingPageProps {
   onOpenApp: () => void;
@@ -198,8 +199,21 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenApp }) => {
       </header>
 
       {/* Hero Section */}
-      <section className="pt-16 pb-14 px-4 sm:px-6 text-center max-w-4xl mx-auto">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#121212] border border-[#262626] text-[#A1A1AA] text-xs font-medium mb-6">
+      <section className="relative pt-16 pb-14 px-4 sm:px-6 text-center max-w-4xl mx-auto">
+        {/* Background Gradient ASCII Animation */}
+        <div className="absolute inset-0 -top-6 h-[600px] w-full pointer-events-none -z-10 overflow-hidden flex items-center justify-center">
+          <div className="w-full h-full relative opacity-30 [mask-image:radial-gradient(ellipse_at_top,black_40%,transparent_75%)]">
+            <GradientASCII
+              colors={['#0E1B09', '#1C3D0F', '#4D7C0F', '#D4FA3C']}
+              shape="horizon"
+              characters=" =+xX0S8#@"
+              cellSize={18}
+              density={0.8}
+            />
+          </div>
+        </div>
+
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#121212] border border-[#262626] text-[#A1A1AA] text-xs font-medium mb-6 backdrop-blur-sm">
           <span className="w-2 h-2 rounded-full bg-[#D4FA3C]" />
           <span>Sistem Bel Otomatis Sekolah & Pesantren</span>
           <span className="text-[#3F3F46]">•</span>
