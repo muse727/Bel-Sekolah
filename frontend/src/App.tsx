@@ -1297,35 +1297,86 @@ export default function App() {
         {/* HEADER TOP BAR */}
         <header className="space-y-4 border-b border-[#22281E] pb-5">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-[#272E22] bg-[#141414]">
-                {status?.settings.school_logo ? (
-                  <img
-                    src={status.settings.school_logo}
-                    alt={status?.settings.school_name || 'Logo Sekolah'}
-                    className="w-full h-full object-contain p-1 bg-white"
-                  />
-                ) : (
-                  <img
-                    src="/logo-aplikasi.png"
-                    alt="Logo Bel Sekolah"
-                    className="w-full h-full object-cover"
-                  />
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold uppercase tracking-wider text-[#9CA695]">Sistem Bel Otomatis</span>
-                  <span className="inline-block w-2 h-2 rounded-full bg-[#D4FA3C]" title="Server Aktif"></span>
+            {!IS_DESKTOP ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setCurrentView('landing');
+                  window.history.pushState({}, '', '/');
+                }}
+                title="Kembali ke Landing Page"
+                className="flex items-center gap-3 min-w-0 text-left group cursor-pointer focus:outline-none"
+              >
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-[#272E22] bg-[#141414] group-hover:border-[#D4FA3C] transition-colors">
+                  {status?.settings.school_logo ? (
+                    <img
+                      src={status.settings.school_logo}
+                      alt={status?.settings.school_name || 'Logo Sekolah'}
+                      className="w-full h-full object-contain p-1 bg-white"
+                    />
+                  ) : (
+                    <img
+                      src="/logo-aplikasi.png"
+                      alt="Logo Bel Sekolah"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
                 </div>
-                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#F4F6F0] truncate">
-                  Bel Sekolah{status?.settings.school_name ? ` — ${status.settings.school_name}` : ''}
-                </h1>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#9CA695] group-hover:text-[#D4FA3C] transition-colors">Sistem Bel Otomatis</span>
+                    <span className="inline-block w-2 h-2 rounded-full bg-[#D4FA3C]" title="Server Aktif"></span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#F4F6F0] truncate group-hover:text-white transition-colors">
+                    Bel Sekolah{status?.settings.school_name ? ` — ${status.settings.school_name}` : ''}
+                  </h1>
+                </div>
+              </button>
+            ) : (
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 overflow-hidden shadow-sm border border-[#272E22] bg-[#141414]">
+                  {status?.settings.school_logo ? (
+                    <img
+                      src={status.settings.school_logo}
+                      alt={status?.settings.school_name || 'Logo Sekolah'}
+                      className="w-full h-full object-contain p-1 bg-white"
+                    />
+                  ) : (
+                    <img
+                      src="/logo-aplikasi.png"
+                      alt="Logo Bel Sekolah"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-[#9CA695]">Sistem Bel Otomatis</span>
+                    <span className="inline-block w-2 h-2 rounded-full bg-[#D4FA3C]" title="Server Aktif"></span>
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-[#F4F6F0] truncate">
+                    Bel Sekolah{status?.settings.school_name ? ` — ${status.settings.school_name}` : ''}
+                  </h1>
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Master Controls: Theme Toggle, Mute & Time Display */}
             <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+              {!IS_DESKTOP && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentView('landing');
+                    window.history.pushState({}, '', '/');
+                  }}
+                  title="Kembali ke Landing Page Beranda"
+                  className="px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border transition-all bg-[#171A15] text-[#A9B2A3] border-[#272E22] hover:bg-[#20251D] hover:text-[#F4F6F0] hover:border-[#384232]"
+                >
+                  <IconArrowRight className="w-3.5 h-3.5 rotate-180" />
+                  <span className="hidden sm:inline">Landing Page</span>
+                </button>
+              )}
               <button
                 type="button"
                 onClick={toggleTheme}
@@ -1396,16 +1447,6 @@ export default function App() {
             className="w-fit max-w-full"
             innerClassName="gap-1.5 bg-[#171A15] p-1.5 rounded-full border border-[#272E22]"
           >
-            <button
-              type="button"
-              onClick={() => {
-                setCurrentView('landing');
-                window.history.pushState({}, '', '/');
-              }}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all shrink-0 text-[#A9B2A3] hover:text-[#F4F6F0] hover:bg-[#20251D] flex items-center gap-1.5"
-            >
-              <span>← Landing</span>
-            </button>
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
